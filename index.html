@@ -4,23 +4,59 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Rz Ai Data Analyst</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2F6FED">
+<link rel="apple-touch-icon" href="logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; font-family: 'Inter', sans-serif; background: #0A1428; color: #E6EAF0; }
+
+  #auth-screen {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 24px; background: radial-gradient(circle at 50% 0%, #132340 0%, #0A1428 60%);
+  }
+  .auth-card { max-width: 400px; width: 100%; }
+  .auth-logo { display: flex; align-items: center; gap: 8px; justify-content: center; margin-bottom: 8px; }
+  .auth-logo img { height: 56px; }
+  .auth-logo-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 24px; letter-spacing: 0.5px; }
+  .auth-tagline { text-align: center; color: #7C8797; font-size: 13px; margin-bottom: 28px; }
+  .auth-greeting { text-align: center; font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 600; margin-bottom: 24px; }
+  .auth-tabs { display: flex; gap: 6px; background: #101c33; border-radius: 8px; padding: 4px; margin-bottom: 20px; }
+  .auth-tab { flex: 1; text-align: center; padding: 8px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; color: #7C8797; }
+  .auth-tab.active { background: #2F6FED; color: #fff; }
+  .auth-field { margin-bottom: 14px; }
+  .auth-field label { font-size: 12px; color: #7C8797; display: block; margin-bottom: 6px; font-family: 'IBM Plex Mono', monospace; }
+  .auth-field input {
+    width: 100%; background: #132340; border: 1px solid #2E4571; border-radius: 8px;
+    color: #E6EAF0; padding: 11px 12px; font-size: 14px; outline: none;
+  }
+  .auth-submit {
+    width: 100%; background: #2F6FED; border: none; border-radius: 8px; color: #fff;
+    padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 6px;
+  }
+  .auth-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+  .auth-error { color: #E5484D; font-size: 12px; margin-top: 10px; text-align: center; }
+  .auth-note { color: #7C8797; font-size: 11px; margin-top: 14px; text-align: center; line-height: 1.5; }
+
+  #app-screen { display: none; }
   #app { max-width: 560px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; }
   .header { border-bottom: 1px solid #20365B; padding: 14px 16px; background: #0E1B33; }
   .header-row { display: flex; align-items: center; justify-content: space-between; }
   .brand { display: flex; align-items: center; gap: 8px; }
+  .brand img { height: 26px; }
   .brand-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px; letter-spacing: 0.5px; }
   .brand-sub { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #7C8797; }
   .btn-row { display: flex; gap: 8px; }
   .icon-btn { display: flex; align-items: center; gap: 6px; background: #182D4D; border: 1px solid #2E4571; border-radius: 6px; padding: 6px 10px; font-size: 12px; font-family: 'IBM Plex Mono', monospace; cursor: pointer; }
   .icon-btn.csv { color: #2F6FED; }
   .icon-btn.paste { color: #4FA3F7; }
+  .icon-btn.logout { color: #7C8797; }
   .status-bar { margin-top: 10px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #7C8797; }
   .quality-good { color: #4FA3F7; }
   .quality-bad { color: #E5484D; }
@@ -31,7 +67,15 @@
   .paste-actions { display: flex; gap: 8px; margin-top: 6px; }
   .load-btn { background: #2F6FED; border: none; border-radius: 6px; color: #0A1428; padding: 6px 12px; font-size: 12px; font-family: 'IBM Plex Mono', monospace; font-weight: 600; cursor: pointer; }
   .cancel-btn { background: none; border: 1px solid #2E4571; border-radius: 6px; color: #7C8797; padding: 6px 12px; font-size: 12px; font-family: 'IBM Plex Mono', monospace; cursor: pointer; }
-  #messages { flex: 1; overflow-y: auto; padding: 16px; }
+
+  #scroll-area { flex: 1; overflow-y: auto; }
+  #charts-container { padding: 16px 16px 0 16px; display: none; }
+  #charts-container.has-charts { display: block; }
+  .chart-card { background: #101c33; border: 1px solid #20365B; border-radius: 10px; padding: 12px; margin-bottom: 14px; }
+  .chart-title { font-size: 12px; font-family: 'IBM Plex Mono', monospace; color: #7C8797; margin-bottom: 8px; }
+  .chart-card canvas { max-height: 220px; }
+
+  #messages { padding: 16px; }
   .msg-row { display: flex; margin-bottom: 14px; }
   .msg-row.user { justify-content: flex-end; }
   .msg-row.assistant { justify-content: flex-start; }
@@ -39,7 +83,7 @@
   .bubble.user { background: #182D4D; border: 1px solid #2E4571; }
   .bubble.assistant { background: #132340; border: 1px solid #20365B; border-left: 3px solid #2F6FED; }
   .thinking { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #7C8797; }
-  .error-line { display: flex; align-items: center; gap: 6px; color: #E5484D; font-size: 12px; font-family: 'IBM Plex Mono', monospace; margin-top: 6px; }
+  .error-line { display: flex; align-items: center; gap: 6px; color: #E5484D; font-size: 12px; font-family: 'IBM Plex Mono', monospace; margin: 0 16px 12px 16px; }
   .input-bar { border-top: 1px solid #20365B; padding: 12px 16px; background: #0E1B33; }
   .input-row { display: flex; gap: 8px; align-items: flex-end; }
   textarea#chat-input { flex: 1; resize: none; background: #132340; border: 1px solid #2E4571; border-radius: 8px; color: #E6EAF0; padding: 10px 12px; font-size: 14px; font-family: 'Inter', sans-serif; outline: none; }
@@ -49,11 +93,43 @@
 </style>
 </head>
 <body>
+
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <img src="logo.png" alt="RZ AI" onerror="this.style.display='none'; document.getElementById('fallback-icon-1').style.display='inline'" />
+      <span id="fallback-icon-1" style="display:none; color:#2F6FED; font-size:22px;">▲</span>
+      <span class="auth-logo-name">RZ AI</span>
+    </div>
+    <div class="auth-tagline">Your AI data analyst — turn spreadsheets into insights in seconds.</div>
+    <div class="auth-greeting">Hey! How can I help you today?</div>
+
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="tab-signup">Sign Up</div>
+      <div class="auth-tab" id="tab-login">Log In</div>
+    </div>
+
+    <div class="auth-field">
+      <label>Email</label>
+      <input type="email" id="auth-email" placeholder="you@example.com" />
+    </div>
+    <div class="auth-field">
+      <label>Password</label>
+      <input type="password" id="auth-password" placeholder="At least 6 characters" />
+    </div>
+    <button class="auth-submit" id="auth-submit">Sign Up</button>
+    <div class="auth-error" id="auth-error" style="display:none;"></div>
+    <div class="auth-note">By continuing you agree this is a demo project. Your data is stored securely per account.</div>
+  </div>
+</div>
+
+<div id="app-screen">
 <div id="app">
   <div class="header">
     <div class="header-row">
       <div class="brand">
-        <span style="color:#2F6FED;">▲</span>
+        <img src="logo.png" alt="RZ AI" onerror="this.style.display='none'; document.getElementById('fallback-icon-2').style.display='inline'" />
+        <span id="fallback-icon-2" style="display:none; color:#2F6FED;">▲</span>
         <span class="brand-name">RZ AI</span>
         <span class="brand-sub">data analyst</span>
       </div>
@@ -61,6 +137,8 @@
         <label class="icon-btn csv" for="file-input">⬆ File</label>
         <input id="file-input" type="file" accept=".csv,.xlsx,.xls" />
         <button class="icon-btn paste" id="paste-toggle">Paste</button>
+        <button class="icon-btn logout" id="upgrade-btn" style="color:#F5A623; display:none;">⭐ Upgrade</button>
+        <button class="icon-btn logout" id="logout-btn">Log out</button>
       </div>
     </div>
     <div class="status-bar" id="status-bar" style="display:none;"></div>
@@ -73,7 +151,10 @@
     </div>
   </div>
 
-  <div id="messages"></div>
+  <div id="scroll-area">
+    <div id="charts-container"></div>
+    <div id="messages"></div>
+  </div>
 
   <div class="input-bar">
     <div class="input-row">
@@ -82,8 +163,14 @@
     </div>
   </div>
 </div>
+</div>
 
 <script>
+const SUPABASE_URL = "YOUR_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 const SYSTEM_PROMPT = `You are Rz, an elite AI Data Analyst — combining the expertise of a Senior Data Analyst, BI Consultant, Data Scientist, and Strategy Advisor.
 
 CORE PRINCIPLES:
@@ -106,10 +193,12 @@ FORMAT: Use clear headers only when the analysis is substantial (real dataset or
 You will sometimes be given a dataset preview (columns, row count, sample rows, and basic quality stats computed in-app). Treat those as ground truth. Never fabricate numbers beyond what's given — if the user asks something the preview can't answer, say what additional data or a full export would be needed.`;
 
 let messages = [
-  { role: "assistant", content: "I'm Rz, your AI data analyst. Upload a CSV to get a real data quality read and analysis, or just ask me a question — SQL, Excel formulas, dashboard design, whatever you need." }
+  { role: "assistant", content: "I'm Rz, your AI data analyst. Upload a file to get a real data quality read, auto-charts, and analysis, or just ask me a question — SQL, Excel formulas, dashboard design, whatever you need." }
 ];
 let dataset = null;
 let loading = false;
+let chartInstances = [];
+let currentUser = null;
 
 const messagesEl = document.getElementById('messages');
 const statusBar = document.getElementById('status-bar');
@@ -118,6 +207,154 @@ const pasteArea = document.getElementById('paste-area');
 const chatInput = document.getElementById('chat-input');
 const sendBtn = document.getElementById('send-btn');
 const fileInput = document.getElementById('file-input');
+const chartsContainer = document.getElementById('charts-container');
+const scrollArea = document.getElementById('scroll-area');
+
+let authMode = 'signup';
+const tabSignup = document.getElementById('tab-signup');
+const tabLogin = document.getElementById('tab-login');
+const authSubmit = document.getElementById('auth-submit');
+const authError = document.getElementById('auth-error');
+const authEmail = document.getElementById('auth-email');
+const authPassword = document.getElementById('auth-password');
+
+function setAuthMode(mode) {
+  authMode = mode;
+  tabSignup.classList.toggle('active', mode === 'signup');
+  tabLogin.classList.toggle('active', mode === 'login');
+  authSubmit.textContent = mode === 'signup' ? 'Sign Up' : 'Log In';
+  authError.style.display = 'none';
+}
+tabSignup.onclick = () => setAuthMode('signup');
+tabLogin.onclick = () => setAuthMode('login');
+
+authSubmit.onclick = async () => {
+  const email = authEmail.value.trim();
+  const password = authPassword.value;
+  authError.style.display = 'none';
+  if (!email || !password) { authError.textContent = 'Enter an email and password.'; authError.style.display = 'block'; return; }
+  authSubmit.disabled = true;
+  authSubmit.textContent = 'Please wait...';
+  try {
+    let result;
+    if (authMode === 'signup') {
+      result = await supabase.auth.signUp({ email, password });
+    } else {
+      result = await supabase.auth.signInWithPassword({ email, password });
+    }
+    if (result.error) throw result.error;
+    if (authMode === 'signup' && !result.data.session) {
+      authError.textContent = 'Check your email to confirm your account, then log in.';
+      authError.style.display = 'block';
+      setAuthMode('login');
+    } else {
+      onAuthed(result.data.user);
+    }
+  } catch (err) {
+    authError.textContent = err.message || 'Something went wrong.';
+    authError.style.display = 'block';
+  } finally {
+    authSubmit.disabled = false;
+    authSubmit.textContent = authMode === 'signup' ? 'Sign Up' : 'Log In';
+  }
+};
+
+document.getElementById('logout-btn').onclick = async () => {
+  await supabase.auth.signOut();
+  currentUser = null;
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+};
+
+async function onAuthed(user) {
+  currentUser = user;
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  await loadProfile();
+  await loadSavedDataset();
+  renderMessages();
+}
+
+let userProfile = { is_pro: false, message_count: 0, message_date: null };
+const upgradeBtn = document.getElementById('upgrade-btn');
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function loadProfile() {
+  try {
+    let { data } = await supabase.from('profiles').select('*').eq('user_id', currentUser.id).maybeSingle();
+    if (!data) {
+      const insertRes = await supabase.from('profiles').insert({
+        user_id: currentUser.id, is_pro: false, message_count: 0, message_date: todayStr()
+      }).select().single();
+      data = insertRes.data;
+    }
+    userProfile = data || userProfile;
+    if (userProfile.message_date !== todayStr()) {
+      userProfile.message_count = 0;
+      userProfile.message_date = todayStr();
+    }
+    updateProUI();
+  } catch (e) { /* non-critical */ }
+}
+
+function updateProUI() {
+  upgradeBtn.style.display = userProfile.is_pro ? 'none' : 'flex';
+}
+
+const WHATSAPP_NUMBER = "923207895540";
+
+upgradeBtn.onclick = () => {
+  const msg = encodeURIComponent(
+    `Hi! I'd like to upgrade to Rz AI Pro. My account email is: ${currentUser.email}`
+  );
+  window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank');
+};
+
+async function incrementMessageCount() {
+  userProfile.message_count += 1;
+  try {
+    await supabase.from('profiles').update({
+      message_count: userProfile.message_count, message_date: userProfile.message_date
+    }).eq('user_id', currentUser.id);
+  } catch (e) { /* non-critical */ }
+}
+
+async function loadSavedDataset() {
+  try {
+    const { data, error } = await supabase
+      .from('user_datasets')
+      .select('filename, data')
+      .eq('user_id', currentUser.id)
+      .maybeSingle();
+    if (data && data.data) {
+      const { fields, rows } = data.data;
+      applyDataset(fields, rows, data.filename, false);
+      messages.push({ role: 'assistant', content: `Welcome back — restored your last dataset: ${data.filename}.` });
+    }
+  } catch (e) { /* no saved dataset yet, ignore */ }
+}
+
+async function saveDatasetToCloud() {
+  if (!currentUser || !dataset) return;
+  try {
+    await supabase.from('user_datasets').upsert({
+      user_id: currentUser.id,
+      filename: dataset.fileName,
+      data: { fields: dataset.fields, rows: dataset.rows },
+      updated_at: new Date().toISOString()
+    });
+  } catch (e) { /* silent fail, non-critical */ }
+}
+
+(async function initSession() {
+  const { data } = await supabase.auth.getSession();
+  if (data.session && data.session.user) {
+    onAuthed(data.session.user);
+  }
+})();
 
 function escapeHtml(str) {
   const div = document.createElement('div');
@@ -142,7 +379,7 @@ function renderMessages() {
     row.innerHTML = '<div class="bubble assistant thinking">analyzing...</div>';
     messagesEl.appendChild(row);
   }
-  messagesEl.scrollTop = messagesEl.scrollHeight;
+  scrollArea.scrollTop = scrollArea.scrollHeight;
 }
 
 function showError(msg) {
@@ -150,7 +387,7 @@ function showError(msg) {
   row.className = 'error-line';
   row.innerText = '⚠ ' + msg;
   messagesEl.appendChild(row);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
+  scrollArea.scrollTop = scrollArea.scrollHeight;
 }
 
 function computeProfile(data, fields) {
@@ -193,18 +430,147 @@ function renderStatusBar() {
     <span class="${q > 80 ? 'quality-good' : 'quality-bad'}">quality ${q}/100</span>
     <button class="clear-btn" id="clear-dataset">✕</button>
   `;
-  document.getElementById('clear-dataset').onclick = () => { dataset = null; renderStatusBar(); };
+  document.getElementById('clear-dataset').onclick = () => { dataset = null; renderStatusBar(); clearCharts(); };
 }
 
-function applyDataset(fields, rows, label) {
+const CHART_COLORS = ['#2F6FED','#4FA3F7','#7C8797','#E5484D','#F5A623','#3EC9C0','#9D7BFF','#F472B6'];
+
+function clearCharts() {
+  chartInstances.forEach(c => c.destroy());
+  chartInstances = [];
+  chartsContainer.innerHTML = '';
+  chartsContainer.classList.remove('has-charts');
+}
+
+function addChartCard(title) {
+  const card = document.createElement('div');
+  card.className = 'chart-card';
+  const label = document.createElement('div');
+  label.className = 'chart-title';
+  label.innerText = title;
+  const canvas = document.createElement('canvas');
+  card.appendChild(label);
+  card.appendChild(canvas);
+  chartsContainer.appendChild(card);
+  return canvas;
+}
+
+function isDateLike(name) {
+  return /date|day|month|year|time/i.test(name);
+}
+function isIdLike(name) {
+  return /^id$|_id$|^.*id$/i.test(name);
+}
+
+function renderCharts(rows, profile) {
+  clearCharts();
+  const numericCols = profile.cols.filter(c => c.type === 'numeric' && !isIdLike(c.name));
+  const categoricalCols = profile.cols.filter(c => c.type === 'text' && c.distinct > 1 && c.distinct <= 15 && !isDateLike(c.name));
+  const dateCol = profile.cols.find(c => isDateLike(c.name));
+  const primaryNumeric = numericCols[0];
+
+  if (!numericCols.length && !categoricalCols.length) return;
+  chartsContainer.classList.add('has-charts');
+
+  if (categoricalCols[0]) {
+    const col = categoricalCols[0];
+    const counts = {};
+    rows.forEach(r => { const v = r[col.name] || 'Unknown'; counts[v] = (counts[v] || 0) + 1; });
+    const canvas = addChartCard(`${col.name} — composition`);
+    chartInstances.push(new Chart(canvas, {
+      type: 'pie',
+      data: { labels: Object.keys(counts), datasets: [{ data: Object.values(counts), backgroundColor: CHART_COLORS }] },
+      options: { plugins: { legend: { labels: { color: '#E6EAF0', font: { size: 10 } } } } }
+    }));
+  }
+
+  categoricalCols.slice(0, 3).forEach(col => {
+    if (!primaryNumeric) return;
+    const sums = {};
+    rows.forEach(r => {
+      const key = r[col.name] || 'Unknown';
+      const val = parseFloat(r[primaryNumeric.name]) || 0;
+      sums[key] = (sums[key] || 0) + val;
+    });
+    const canvas = addChartCard(`${primaryNumeric.name} by ${col.name}`);
+    chartInstances.push(new Chart(canvas, {
+      type: 'bar',
+      data: { labels: Object.keys(sums), datasets: [{ label: primaryNumeric.name, data: Object.values(sums), backgroundColor: '#2F6FED' }] },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#7C8797', font: { size: 9 } }, grid: { color: '#20365B' } },
+          y: { ticks: { color: '#7C8797', font: { size: 9 } }, grid: { color: '#20365B' } }
+        }
+      }
+    }));
+  });
+
+  if (dateCol && primaryNumeric) {
+    const byDate = {};
+    rows.forEach(r => {
+      const d = r[dateCol.name];
+      if (!d) return;
+      const val = parseFloat(r[primaryNumeric.name]) || 0;
+      byDate[d] = (byDate[d] || 0) + val;
+    });
+    const labels = Object.keys(byDate).sort();
+    const canvas = addChartCard(`${primaryNumeric.name} over ${dateCol.name}`);
+    chartInstances.push(new Chart(canvas, {
+      type: 'line',
+      data: { labels, datasets: [{ label: primaryNumeric.name, data: labels.map(l => byDate[l]), borderColor: '#4FA3F7', backgroundColor: 'rgba(79,163,247,0.15)', fill: true, tension: 0.3 }] },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#7C8797', font: { size: 9 } }, grid: { color: '#20365B' } },
+          y: { ticks: { color: '#7C8797', font: { size: 9 } }, grid: { color: '#20365B' } }
+        }
+      }
+    }));
+  }
+
+  if (numericCols[1]) {
+    const col = numericCols[1];
+    const values = rows.map(r => parseFloat(r[col.name])).filter(v => !isNaN(v));
+    if (values.length) {
+      const min = Math.min(...values), max = Math.max(...values);
+      const bucketCount = 6;
+      const size = (max - min) / bucketCount || 1;
+      const buckets = new Array(bucketCount).fill(0);
+      values.forEach(v => {
+        let idx = Math.floor((v - min) / size);
+        if (idx >= bucketCount) idx = bucketCount - 1;
+        if (idx < 0) idx = 0;
+        buckets[idx]++;
+      });
+      const labels = buckets.map((_, i) => `${Math.round(min + i * size)}–${Math.round(min + (i + 1) * size)}`);
+      const canvas = addChartCard(`${col.name} — distribution`);
+      chartInstances.push(new Chart(canvas, {
+        type: 'bar',
+        data: { labels, datasets: [{ label: col.name, data: buckets, backgroundColor: '#F5A623' }] },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#7C8797', font: { size: 9 } }, grid: { color: '#20365B' } },
+            y: { ticks: { color: '#7C8797', font: { size: 9 } }, grid: { color: '#20365B' } }
+          }
+        }
+      }));
+    }
+  }
+}
+
+function applyDataset(fields, rows, label, persist = true) {
   if (!fields.length || !rows.length) { showError("Couldn't find valid rows/columns in that file."); return; }
   const profile = computeProfile(rows, fields);
   dataset = { fileName: label, fields, rows, profile };
   renderStatusBar();
+  renderCharts(rows, profile);
   pastePanel.classList.remove('open');
   pasteArea.value = '';
-  messages.push({ role: 'assistant', content: `Loaded ${label} — ${profile.rowCount.toLocaleString()} rows × ${profile.colCount} columns. Quality score: ${profile.qualityScore}/100. Ask me anything about it, or say "analyze this" for a full breakdown.` });
+  messages.push({ role: 'assistant', content: `Loaded ${label} — ${profile.rowCount.toLocaleString()} rows × ${profile.colCount} columns. Quality score: ${profile.qualityScore}/100. Charts are above. Ask me anything about it, or say "analyze this" for a full breakdown.` });
   renderMessages();
+  if (persist) saveDatasetToCloud();
 }
 
 function loadCsvText(text, label) {
@@ -263,10 +629,20 @@ function buildDataContext() {
 async function sendMessage() {
   const text = chatInput.value.trim();
   if (!text || loading) return;
+
+  if (!userProfile.is_pro && userProfile.message_count >= 5) {
+    messages.push({ role: 'user', content: text });
+    chatInput.value = '';
+    renderMessages();
+    showError("You've reached today's free limit (5 messages). Upgrade to Pro for unlimited messages.");
+    return;
+  }
+
   messages.push({ role: 'user', content: text });
   chatInput.value = '';
   loading = true;
   renderMessages();
+  if (!userProfile.is_pro) incrementMessageCount();
 
   let errorMsg = null;
   try {
@@ -304,7 +680,9 @@ chatInput.addEventListener('keydown', (e) => {
   }
 });
 
-renderMessages();
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 </script>
 </body>
 </html>
