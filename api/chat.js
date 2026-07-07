@@ -2,6 +2,22 @@
 // Set GEMINI_API_KEY in your Vercel project's Environment Variables.
 // Get a free key at https://aistudio.google.com/apikey (no credit card needed).
 
+const MODEL = "gemini-2.0-flash-001";
+
+async function callGemini(apiKey, system, contents) {
+  return fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system }] },
+        contents,
+      }),
+    }
+  );
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
@@ -22,19 +38,23 @@ export default async function handler(req, res) {
       parts: [{ text: m.content }],
     }));
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: system }] },
-          contents,
-        }),
-      }
-    );
+    let response;
+    let data;
+    const maxAttempts = 3;
 
-    const data = await response.json();
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      response = await callGemini(apiKey, system, contents);
+      data = await response.json();
+
+      if (response.ok) break;
+
+      const isOverloaded = response.status === 503 || response.status === 429;
+      if (isOverloaded && attempt < maxAttempts) {
+        await new Promise((r) => setTimeout(r, attempt * 1500));
+        continue;
+      }
+      break;
+    }
 
     if (!response.ok) {
       res.status(response.status).json({ error: data?.error?.message || "Gemini API error" });
