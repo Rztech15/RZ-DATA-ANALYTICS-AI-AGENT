@@ -1,0 +1,11 @@
+{
+  "name": "Rz Ai Data Analyst",
+  "short_name": "Rz AI",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A1428",
+  "theme_color": "#2F6FED",
+  "icons": [
+    { "src": "logo.png", "sizes": "400x400", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
