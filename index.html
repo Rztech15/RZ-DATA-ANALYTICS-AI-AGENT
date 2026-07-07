@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; font-family: 'Inter', sans-serif; background: #0A1428; color: #E6EAF0; }
@@ -57,8 +58,8 @@
         <span class="brand-sub">data analyst</span>
       </div>
       <div class="btn-row">
-        <label class="icon-btn csv" for="file-input">⬆ CSV</label>
-        <input id="file-input" type="file" accept=".csv" />
+        <label class="icon-btn csv" for="file-input">⬆ File</label>
+        <input id="file-input" type="file" accept=".csv,.xlsx,.xls" />
         <button class="icon-btn paste" id="paste-toggle">Paste</button>
       </div>
     </div>
@@ -195,34 +196,54 @@ function renderStatusBar() {
   document.getElementById('clear-dataset').onclick = () => { dataset = null; renderStatusBar(); };
 }
 
+function applyDataset(fields, rows, label) {
+  if (!fields.length || !rows.length) { showError("Couldn't find valid rows/columns in that file."); return; }
+  const profile = computeProfile(rows, fields);
+  dataset = { fileName: label, fields, rows, profile };
+  renderStatusBar();
+  pastePanel.classList.remove('open');
+  pasteArea.value = '';
+  messages.push({ role: 'assistant', content: `Loaded ${label} — ${profile.rowCount.toLocaleString()} rows × ${profile.colCount} columns. Quality score: ${profile.qualityScore}/100. Ask me anything about it, or say "analyze this" for a full breakdown.` });
+  renderMessages();
+}
+
 function loadCsvText(text, label) {
   Papa.parse(text, {
     header: true,
     dynamicTyping: false,
     skipEmptyLines: true,
-    complete: (results) => {
-      const fields = results.meta.fields || [];
-      const rows = results.data;
-      if (!fields.length || !rows.length) { showError("Couldn't find valid CSV rows/columns in that text."); return; }
-      const profile = computeProfile(rows, fields);
-      dataset = { fileName: label, fields, rows, profile };
-      renderStatusBar();
-      pastePanel.classList.remove('open');
-      pasteArea.value = '';
-      messages.push({ role: 'assistant', content: `Loaded ${label} — ${profile.rowCount.toLocaleString()} rows × ${profile.colCount} columns. Quality score: ${profile.qualityScore}/100. Ask me anything about it, or say "analyze this" for a full breakdown.` });
-      renderMessages();
-    },
+    complete: (results) => applyDataset(results.meta.fields || [], results.data, label),
     error: (err) => showError("Couldn't parse that: " + err.message)
   });
+}
+
+function loadExcelFile(arrayBuffer, label) {
+  try {
+    const wb = XLSX.read(arrayBuffer, { type: 'array' });
+    const sheetName = wb.SheetNames[0];
+    const sheet = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+    const fields = rows.length ? Object.keys(rows[0]) : [];
+    applyDataset(fields, rows, label + (wb.SheetNames.length > 1 ? ` (sheet: ${sheetName})` : ''));
+  } catch (err) {
+    showError("Couldn't read that Excel file: " + err.message);
+  }
 }
 
 fileInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
+  const name = file.name.toLowerCase();
   const reader = new FileReader();
-  reader.onload = (ev) => loadCsvText(ev.target.result, file.name);
-  reader.onerror = () => showError("Couldn't read that file.");
-  reader.readAsText(file);
+  if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+    reader.onload = (ev) => loadExcelFile(ev.target.result, file.name);
+    reader.onerror = () => showError("Couldn't read that file.");
+    reader.readAsArrayBuffer(file);
+  } else {
+    reader.onload = (ev) => loadCsvText(ev.target.result, file.name);
+    reader.onerror = () => showError("Couldn't read that file.");
+    reader.readAsText(file);
+  }
   e.target.value = '';
 });
 
@@ -247,6 +268,7 @@ async function sendMessage() {
   loading = true;
   renderMessages();
 
+  let errorMsg = null;
   try {
     const apiMessages = messages.map((m, i) => {
       if (i === messages.length - 1 && m.role === 'user' && dataset) {
@@ -266,10 +288,11 @@ async function sendMessage() {
     const textBlocks = (data.content || []).map(b => b.type === 'text' ? b.text : '').filter(Boolean).join('\n');
     messages.push({ role: 'assistant', content: textBlocks || "Sorry, I didn't get a response — try again." });
   } catch (err) {
-    showError('Something went wrong reaching Rz: ' + err.message);
+    errorMsg = 'Something went wrong reaching Rz: ' + err.message;
   } finally {
     loading = false;
     renderMessages();
+    if (errorMsg) showError(errorMsg);
   }
 }
 
