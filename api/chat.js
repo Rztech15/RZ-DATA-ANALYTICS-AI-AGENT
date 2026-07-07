@@ -2,7 +2,7 @@
 // Set GEMINI_API_KEY in your Vercel project's Environment Variables.
 // Get a free key at https://aistudio.google.com/apikey (no credit card needed).
 
-const MODEL = "gemini-2.0-flash-001";
+const MODEL = "gemini-2.5-flash-lite";
 
 async function callGemini(apiKey, system, contents) {
   return fetch(
