@@ -22,9 +22,8 @@
     padding: 24px; background: radial-gradient(circle at 50% 0%, #132340 0%, #0A1428 60%);
   }
   .auth-card { max-width: 400px; width: 100%; }
-  .auth-logo { display: flex; align-items: center; gap: 8px; justify-content: center; margin-bottom: 8px; }
-  .auth-logo img { height: 72px; }
-  .auth-logo-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 22px; letter-spacing: 0.3px; }
+  .auth-logo { display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
+  .auth-logo img { height: 100px; }
   .auth-tagline { text-align: center; color: #7C8797; font-size: 13px; margin-bottom: 28px; }
   .auth-greeting { text-align: center; font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 600; margin-bottom: 24px; }
   .auth-tabs { display: flex; gap: 6px; background: #101c33; border-radius: 8px; padding: 4px; margin-bottom: 20px; }
@@ -104,7 +103,6 @@
     <div class="auth-logo">
       <img src="logo.png" alt="RZ AI Data Analyst" onerror="this.style.display='none'; document.getElementById('fallback-icon-1').style.display='inline'" />
       <span id="fallback-icon-1" style="display:none; color:#2F6FED; font-size:22px;">▲</span>
-      <span class="auth-logo-name">RZ AI Data Analyst</span>
     </div>
     <div class="auth-greeting">Welcome to RZ AI Data Analyst</div>
     <div class="auth-tagline">Upload Excel or CSV files and get instant charts, dashboards, insights, and AI-powered analysis.</div>
@@ -128,13 +126,6 @@
     <button class="auth-submit" id="auth-submit">Sign Up</button>
     <div class="auth-error" id="auth-error" style="display:none;"></div>
     <div class="auth-note">Your data is encrypted and securely stored.</div>
-
-    <div class="feature-grid">
-      <div class="feature-card"><span class="emoji">📊</span>Analyze Excel Files</div>
-      <div class="feature-card"><span class="emoji">📈</span>Interactive Dashboards</div>
-      <div class="feature-card"><span class="emoji">🤖</span>AI Insights</div>
-      <div class="feature-card"><span class="emoji">📥</span>Export Reports</div>
-    </div>
   </div>
 </div>
 
@@ -167,6 +158,12 @@
   </div>
 
   <div id="scroll-area">
+    <div class="feature-grid" id="post-login-features" style="padding: 16px 16px 0 16px; margin-top: 0;">
+      <div class="feature-card"><span class="emoji">📊</span>Analyze Excel Files</div>
+      <div class="feature-card"><span class="emoji">📈</span>Interactive Dashboards</div>
+      <div class="feature-card"><span class="emoji">🤖</span>AI Insights</div>
+      <div class="feature-card"><span class="emoji">📥</span>Export Reports</div>
+    </div>
     <div id="charts-container"></div>
     <div id="messages"></div>
   </div>
@@ -181,16 +178,16 @@
 </div>
 
 <script>
-const SUPABASE_URL = "https://ewtkxqrdxzlrgfmifmii.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3dGt4cXJkeHpscmdmbWlmbWlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NDMyMzIsImV4cCI6MjA5OTAxOTIzMn0.AIJSUyqM_amTf2TSwfT2sC193M-EwwCeytb7GuuhQ14";
+const SUPABASE_URL = "YOUR_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
 
-let supabase;
+let sb;
 let supabaseInitError = null;
 try {
   if (SUPABASE_URL.includes('YOUR_SUPABASE') || SUPABASE_ANON_KEY.includes('YOUR_SUPABASE')) {
     throw new Error('Supabase URL/key were not filled in.');
   }
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 } catch (e) {
   supabaseInitError = e.message;
   console.error('Supabase init failed:', e);
@@ -280,9 +277,9 @@ authSubmit.onclick = async () => {
   try {
     let result;
     if (authMode === 'signup') {
-      result = await supabase.auth.signUp({ email, password });
+      result = await sb.auth.signUp({ email, password });
     } else {
-      result = await supabase.auth.signInWithPassword({ email, password });
+      result = await sb.auth.signInWithPassword({ email, password });
     }
     if (result.error) throw result.error;
     if (authMode === 'signup' && !result.data.session) {
@@ -302,7 +299,7 @@ authSubmit.onclick = async () => {
 };
 
 document.getElementById('logout-btn').onclick = async () => {
-  await supabase.auth.signOut();
+  await sb.auth.signOut();
   currentUser = null;
   document.getElementById('app-screen').style.display = 'none';
   document.getElementById('auth-screen').style.display = 'flex';
@@ -326,9 +323,9 @@ function todayStr() {
 
 async function loadProfile() {
   try {
-    let { data } = await supabase.from('profiles').select('*').eq('user_id', currentUser.id).maybeSingle();
+    let { data } = await sb.from('profiles').select('*').eq('user_id', currentUser.id).maybeSingle();
     if (!data) {
-      const insertRes = await supabase.from('profiles').insert({
+      const insertRes = await sb.from('profiles').insert({
         user_id: currentUser.id, is_pro: false, message_count: 0, message_date: todayStr()
       }).select().single();
       data = insertRes.data;
@@ -358,7 +355,7 @@ upgradeBtn.onclick = () => {
 async function incrementMessageCount() {
   userProfile.message_count += 1;
   try {
-    await supabase.from('profiles').update({
+    await sb.from('profiles').update({
       message_count: userProfile.message_count, message_date: userProfile.message_date
     }).eq('user_id', currentUser.id);
   } catch (e) { /* non-critical */ }
@@ -366,7 +363,7 @@ async function incrementMessageCount() {
 
 async function loadSavedDataset() {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from('user_datasets')
       .select('filename, data')
       .eq('user_id', currentUser.id)
@@ -382,7 +379,7 @@ async function loadSavedDataset() {
 async function saveDatasetToCloud() {
   if (!currentUser || !dataset) return;
   try {
-    await supabase.from('user_datasets').upsert({
+    await sb.from('user_datasets').upsert({
       user_id: currentUser.id,
       filename: dataset.fileName,
       data: { fields: dataset.fields, rows: dataset.rows },
@@ -392,7 +389,7 @@ async function saveDatasetToCloud() {
 }
 
 (async function initSession() {
-  const { data } = await supabase.auth.getSession();
+  const { data } = await sb.auth.getSession();
   if (data.session && data.session.user) {
     onAuthed(data.session.user);
   }
@@ -608,6 +605,8 @@ function applyDataset(fields, rows, label, persist = true) {
   dataset = { fileName: label, fields, rows, profile };
   renderStatusBar();
   renderCharts(rows, profile);
+  const featuresEl = document.getElementById('post-login-features');
+  if (featuresEl) featuresEl.style.display = 'none';
   pastePanel.classList.remove('open');
   pasteArea.value = '';
   messages.push({ role: 'assistant', content: `Loaded ${label} — ${profile.rowCount.toLocaleString()} rows × ${profile.colCount} columns. Quality score: ${profile.qualityScore}/100. Charts are above. Ask me anything about it, or say "analyze this" for a full breakdown.` });
