@@ -23,8 +23,8 @@
   }
   .auth-card { max-width: 400px; width: 100%; }
   .auth-logo { display: flex; align-items: center; gap: 8px; justify-content: center; margin-bottom: 8px; }
-  .auth-logo img { height: 56px; }
-  .auth-logo-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 24px; letter-spacing: 0.5px; }
+  .auth-logo img { height: 72px; }
+  .auth-logo-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 22px; letter-spacing: 0.3px; }
   .auth-tagline { text-align: center; color: #7C8797; font-size: 13px; margin-bottom: 28px; }
   .auth-greeting { text-align: center; font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 600; margin-bottom: 24px; }
   .auth-tabs { display: flex; gap: 6px; background: #101c33; border-radius: 8px; padding: 4px; margin-bottom: 20px; }
@@ -43,6 +43,11 @@
   .auth-submit:disabled { opacity: 0.6; cursor: not-allowed; }
   .auth-error { color: #E5484D; font-size: 12px; margin-top: 10px; text-align: center; }
   .auth-note { color: #7C8797; font-size: 11px; margin-top: 14px; text-align: center; line-height: 1.5; }
+  .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 24px; }
+  .feature-card { background: #101c33; border: 1px solid #20365B; border-radius: 8px; padding: 10px; text-align: center; font-size: 11px; color: #7C8797; }
+  .feature-card .emoji { font-size: 18px; display: block; margin-bottom: 4px; }
+  .password-wrap { position: relative; }
+  .password-toggle { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 15px; color: #7C8797; user-select: none; }
 
   #app-screen { display: none; }
   #app { max-width: 560px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; }
@@ -97,12 +102,12 @@
 <div id="auth-screen">
   <div class="auth-card">
     <div class="auth-logo">
-      <img src="logo.png" alt="RZ AI" onerror="this.style.display='none'; document.getElementById('fallback-icon-1').style.display='inline'" />
+      <img src="logo.png" alt="RZ AI Data Analyst" onerror="this.style.display='none'; document.getElementById('fallback-icon-1').style.display='inline'" />
       <span id="fallback-icon-1" style="display:none; color:#2F6FED; font-size:22px;">▲</span>
-      <span class="auth-logo-name">RZ AI</span>
+      <span class="auth-logo-name">RZ AI Data Analyst</span>
     </div>
-    <div class="auth-tagline">Your AI data analyst — turn spreadsheets into insights in seconds.</div>
-    <div class="auth-greeting">Hey! How can I help you today?</div>
+    <div class="auth-greeting">Welcome to RZ AI Data Analyst</div>
+    <div class="auth-tagline">Upload Excel or CSV files and get instant charts, dashboards, insights, and AI-powered analysis.</div>
 
     <div class="auth-tabs">
       <div class="auth-tab active" id="tab-signup">Sign Up</div>
@@ -111,15 +116,25 @@
 
     <div class="auth-field">
       <label>Email</label>
-      <input type="email" id="auth-email" placeholder="you@example.com" />
+      <input type="email" id="auth-email" placeholder="Enter your email" />
     </div>
     <div class="auth-field">
       <label>Password</label>
-      <input type="password" id="auth-password" placeholder="At least 6 characters" />
+      <div class="password-wrap">
+        <input type="password" id="auth-password" placeholder="At least 6 characters" />
+        <span class="password-toggle" id="password-toggle">👁️</span>
+      </div>
     </div>
     <button class="auth-submit" id="auth-submit">Sign Up</button>
     <div class="auth-error" id="auth-error" style="display:none;"></div>
-    <div class="auth-note">By continuing you agree this is a demo project. Your data is stored securely per account.</div>
+    <div class="auth-note">Your data is encrypted and securely stored.</div>
+
+    <div class="feature-grid">
+      <div class="feature-card"><span class="emoji">📊</span>Analyze Excel Files</div>
+      <div class="feature-card"><span class="emoji">📈</span>Interactive Dashboards</div>
+      <div class="feature-card"><span class="emoji">🤖</span>AI Insights</div>
+      <div class="feature-card"><span class="emoji">📥</span>Export Reports</div>
+    </div>
   </div>
 </div>
 
@@ -169,7 +184,17 @@
 const SUPABASE_URL = "sb_publishable_AUjW79t8KKZ0gJCgm01myw_Dq79j0eE";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3dGt4cXJkeHpscmdmbWlmbWlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NDMyMzIsImV4cCI6MjA5OTAxOTIzMn0.AIJSUyqM_amTf2TSwfT2sC193M-EwwCeytb7GuuhQ14";
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let supabase;
+let supabaseInitError = null;
+try {
+  if (SUPABASE_URL.includes('YOUR_SUPABASE') || SUPABASE_ANON_KEY.includes('YOUR_SUPABASE')) {
+    throw new Error('Supabase URL/key were not filled in.');
+  }
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} catch (e) {
+  supabaseInitError = e.message;
+  console.error('Supabase init failed:', e);
+}
 
 const SYSTEM_PROMPT = `You are Rz, an elite AI Data Analyst — combining the expertise of a Senior Data Analyst, BI Consultant, Data Scientist, and Strategy Advisor.
 
@@ -228,7 +253,24 @@ function setAuthMode(mode) {
 tabSignup.onclick = () => setAuthMode('signup');
 tabLogin.onclick = () => setAuthMode('login');
 
+document.getElementById('password-toggle').onclick = () => {
+  const field = authPassword;
+  const toggle = document.getElementById('password-toggle');
+  if (field.type === 'password') {
+    field.type = 'text';
+    toggle.textContent = '🙈';
+  } else {
+    field.type = 'password';
+    toggle.textContent = '👁️';
+  }
+};
+
 authSubmit.onclick = async () => {
+  if (supabaseInitError) {
+    authError.textContent = 'Setup error: ' + supabaseInitError + ' Double-check the SUPABASE_URL and SUPABASE_ANON_KEY values in index.html.';
+    authError.style.display = 'block';
+    return;
+  }
   const email = authEmail.value.trim();
   const password = authPassword.value;
   authError.style.display = 'none';
