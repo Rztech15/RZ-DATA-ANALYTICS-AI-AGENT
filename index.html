@@ -78,6 +78,13 @@
   .chart-card { background: #101c33; border: 1px solid #20365B; border-radius: 10px; padding: 12px; margin-bottom: 14px; }
   .chart-title { font-size: 12px; font-family: 'IBM Plex Mono', monospace; color: #7C8797; margin-bottom: 8px; }
   .chart-card canvas { max-height: 220px; }
+  .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+  .stat-card { background: #101c33; border: 1px solid #20365B; border-radius: 10px; padding: 12px; }
+  .stat-card .stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; color: #4FA3F7; }
+  .stat-card .stat-label { font-size: 11px; color: #7C8797; font-family: 'IBM Plex Mono', monospace; margin-top: 2px; }
+  .heatmap-grid { display: grid; gap: 2px; margin-top: 4px; }
+  .heatmap-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #fff; border-radius: 3px; }
+  .heatmap-label { font-size: 9px; color: #7C8797; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px; }
 
   #messages { padding: 16px; }
   .msg-row { display: flex; margin-bottom: 14px; }
@@ -179,8 +186,8 @@
 </div>
 
 <script>
-const SUPABASE_URL = "https://ewtkxqrdxzlrgfmifmii.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3dGt4cXJkeHpscmdmbWlmbWlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NDMyMzIsImV4cCI6MjA5OTAxOTIzMn0.AIJSUyqM_amTf2TSwfT2sC193M-EwwCeytb7GuuhQ14";
+const SUPABASE_URL = "YOUR_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
 
 let sb;
 let supabaseInitError = null;
@@ -513,6 +520,97 @@ function isIdLike(name) {
   return /^id$|_id$|^.*id$/i.test(name);
 }
 
+function renderStatCards(rows, profile) {
+  const numericCols = profile.cols.filter(c => c.type === 'numeric' && !isIdLike(c.name));
+  const totalMissing = profile.cols.reduce((a, c) => a + c.missing, 0);
+  const grid = document.createElement('div');
+  grid.className = 'stat-grid';
+  const stats = [
+    { label: 'TOTAL ROWS', value: profile.rowCount.toLocaleString() },
+    { label: 'MISSING VALUES', value: totalMissing.toLocaleString() },
+    { label: 'DUPLICATE ROWS', value: profile.dupRows.toLocaleString() },
+    { label: 'NUMERIC COLUMNS', value: numericCols.length }
+  ];
+  stats.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'stat-card';
+    card.innerHTML = `<div class="stat-value">${s.value}</div><div class="stat-label">${s.label}</div>`;
+    grid.appendChild(card);
+  });
+  chartsContainer.appendChild(grid);
+}
+
+function pearsonCorrelation(x, y) {
+  const n = x.length;
+  const meanX = x.reduce((a, b) => a + b, 0) / n;
+  const meanY = y.reduce((a, b) => a + b, 0) / n;
+  let num = 0, denX = 0, denY = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = x[i] - meanX, dy = y[i] - meanY;
+    num += dx * dy; denX += dx * dx; denY += dy * dy;
+  }
+  const den = Math.sqrt(denX * denY);
+  return den === 0 ? 0 : num / den;
+}
+
+function correlationColor(v) {
+  if (v > 0) {
+    const t = Math.min(v, 1);
+    return `rgba(47,111,237,${0.15 + t * 0.75})`;
+  } else {
+    const t = Math.min(-v, 1);
+    return `rgba(229,72,77,${0.15 + t * 0.75})`;
+  }
+}
+
+function renderCorrelationHeatmap(rows, profile) {
+  const numericCols = profile.cols.filter(c => c.type === 'numeric' && !isIdLike(c.name));
+  if (numericCols.length < 2) return;
+  const cols = numericCols.slice(0, 6);
+  const series = cols.map(c => rows.map(r => parseFloat(r[c.name])).map(v => isNaN(v) ? 0 : v));
+
+  const card = document.createElement('div');
+  card.className = 'chart-card';
+  const label = document.createElement('div');
+  label.className = 'chart-title';
+  label.innerText = 'Correlation Heatmap';
+  card.appendChild(label);
+
+  const wrap = document.createElement('div');
+  wrap.style.overflowX = 'auto';
+  const grid = document.createElement('div');
+  grid.className = 'heatmap-grid';
+  grid.style.gridTemplateColumns = `70px repeat(${cols.length}, 44px)`;
+  grid.style.minWidth = `${70 + cols.length * 44}px`;
+
+  grid.appendChild(document.createElement('div'));
+  cols.forEach(c => {
+    const l = document.createElement('div');
+    l.className = 'heatmap-label';
+    l.innerText = c.name;
+    grid.appendChild(l);
+  });
+
+  cols.forEach((rowCol, i) => {
+    const rowLabel = document.createElement('div');
+    rowLabel.className = 'heatmap-label';
+    rowLabel.innerText = rowCol.name;
+    grid.appendChild(rowLabel);
+    cols.forEach((colCol, j) => {
+      const corr = i === j ? 1 : pearsonCorrelation(series[i], series[j]);
+      const cell = document.createElement('div');
+      cell.className = 'heatmap-cell';
+      cell.style.background = correlationColor(corr);
+      cell.innerText = corr.toFixed(2);
+      grid.appendChild(cell);
+    });
+  });
+
+  wrap.appendChild(grid);
+  card.appendChild(wrap);
+  chartsContainer.appendChild(card);
+}
+
 function renderCharts(rows, profile) {
   clearCharts();
   const numericCols = profile.cols.filter(c => c.type === 'numeric' && !isIdLike(c.name));
@@ -520,8 +618,10 @@ function renderCharts(rows, profile) {
   const dateCol = profile.cols.find(c => isDateLike(c.name));
   const primaryNumeric = numericCols[0];
 
-  if (!numericCols.length && !categoricalCols.length) return;
   chartsContainer.classList.add('has-charts');
+  renderStatCards(rows, profile);
+
+  if (!numericCols.length && !categoricalCols.length) return;
 
   if (categoricalCols[0]) {
     const col = categoricalCols[0];
@@ -535,7 +635,7 @@ function renderCharts(rows, profile) {
     }));
   }
 
-  categoricalCols.slice(0, 3).forEach(col => {
+  categoricalCols.slice(0, 4).forEach(col => {
     if (!primaryNumeric) return;
     const sums = {};
     rows.forEach(r => {
@@ -580,35 +680,35 @@ function renderCharts(rows, profile) {
     }));
   }
 
-  if (numericCols[1]) {
-    const col = numericCols[1];
+  numericCols.slice(0, 4).forEach(col => {
     const values = rows.map(r => parseFloat(r[col.name])).filter(v => !isNaN(v));
-    if (values.length) {
-      const min = Math.min(...values), max = Math.max(...values);
-      const bucketCount = 6;
-      const size = (max - min) / bucketCount || 1;
-      const buckets = new Array(bucketCount).fill(0);
-      values.forEach(v => {
-        let idx = Math.floor((v - min) / size);
-        if (idx >= bucketCount) idx = bucketCount - 1;
-        if (idx < 0) idx = 0;
-        buckets[idx]++;
-      });
-      const labels = buckets.map((_, i) => `${Math.round(min + i * size)}–${Math.round(min + (i + 1) * size)}`);
-      const canvas = addChartCard(`${col.name} — distribution`);
-      chartInstances.push(new Chart(canvas, {
-        type: 'bar',
-        data: { labels, datasets: [{ label: col.name, data: buckets, backgroundColor: '#F5A623' }] },
-        options: {
-          plugins: { legend: { display: false } },
-          scales: {
-            x: { ticks: { color: '#7C8797', font: { size: 9 } }, grid: { color: '#20365B' } },
-            y: { ticks: { color: '#7C8797', font: { size: 9 } }, grid: { color: '#20365B' } }
-          }
+    if (!values.length) return;
+    const min = Math.min(...values), max = Math.max(...values);
+    const bucketCount = 6;
+    const size = (max - min) / bucketCount || 1;
+    const buckets = new Array(bucketCount).fill(0);
+    values.forEach(v => {
+      let idx = Math.floor((v - min) / size);
+      if (idx >= bucketCount) idx = bucketCount - 1;
+      if (idx < 0) idx = 0;
+      buckets[idx]++;
+    });
+    const labels = buckets.map((_, i) => `${Math.round(min + i * size)}–${Math.round(min + (i + 1) * size)}`);
+    const canvas = addChartCard(`${col.name} — distribution`);
+    chartInstances.push(new Chart(canvas, {
+      type: 'bar',
+      data: { labels, datasets: [{ label: col.name, data: buckets, backgroundColor: '#F5A623' }] },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#7C8797', font: { size: 9 } }, grid: { color: '#20365B' } },
+          y: { ticks: { color: '#7C8797', font: { size: 9 } }, grid: { color: '#20365B' } }
         }
-      }));
-    }
-  }
+      }
+    }));
+  });
+
+  renderCorrelationHeatmap(rows, profile);
 }
 
 function applyDataset(fields, rows, label, persist = true) {
