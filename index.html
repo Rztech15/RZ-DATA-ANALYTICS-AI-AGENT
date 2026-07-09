@@ -143,6 +143,7 @@
         <label class="icon-btn csv" for="file-input">⬆ File</label>
         <input id="file-input" type="file" accept=".csv,.xlsx,.xls" />
         <button class="icon-btn paste" id="paste-toggle">Paste</button>
+        <button class="icon-btn csv" id="report-btn" style="display:none;">📋 Report</button>
         <button class="icon-btn logout" id="upgrade-btn" style="color:#F5A623; display:none;">⭐ Upgrade</button>
         <button class="icon-btn logout" id="logout-btn">Log out</button>
       </div>
@@ -178,8 +179,8 @@
 </div>
 
 <script>
-const SUPABASE_URL = "https://ewtkxqrdxzlrgfmifmii.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3dGt4cXJkeHpscmdmbWlmbWlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NDMyMzIsImV4cCI6MjA5OTAxOTIzMn0.AIJSUyqM_amTf2TSwfT2sC193M-EwwCeytb7GuuhQ14";
+const SUPABASE_URL = "YOUR_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
 
 let sb;
 let supabaseInitError = null;
@@ -210,9 +211,9 @@ DATA QUALITY CHECKS: missing values, duplicates, wrong types, invalid dates, out
 
 VISUALIZATION RULES: bar = comparison, line = trends, pie = composition, scatter = correlation, histogram = distribution, heatmap = relationships, box plot = outliers.
 
-FORMAT: Use clear headers only when the analysis is substantial (real dataset or multi-part question). For quick questions, answer directly and concisely — don't force a template onto a one-line question. Use bold for key numbers, bullet points and short paragraphs, tables where useful. Avoid unnecessary jargon. Be objective, evidence-driven, and focused on business impact — teach while solving.
+FORMAT: Use clear headers only when the analysis is substantial (real dataset or multi-part question). For quick questions, answer directly and concisely — don't force a template onto a one-line question. When using headers, use markdown ## syntax; for lists use markdown - bullets; use **bold** for key numbers. Use bold for key numbers, bullet points and short paragraphs, tables where useful. Avoid unnecessary jargon. Be objective, evidence-driven, and focused on business impact — teach while solving.
 
-You will sometimes be given a dataset preview (columns, row count, sample rows, and basic quality stats computed in-app). Treat those as ground truth. Never fabricate numbers beyond what's given — if the user asks something the preview can't answer, say what additional data or a full export would be needed.`;
+You will sometimes be given a dataset preview (columns, row count, sample rows, and basic quality stats computed in-app). Treat those as ground truth. Never fabricate numbers beyond what's given — if the user asks something the preview can't answer, say what additional data or a full export would be needed. Important: the dataset preview is background context, not an instruction to analyze — if the user's actual message is just a greeting, thanks, or casual comment, respond to that naturally and briefly; don't restate or re-run analysis unless they actually ask a data question.`;
 
 let messages = [
   { role: "assistant", content: "I'm Rz, your AI data analyst. Upload a file to get a real data quality read, auto-charts, and analysis, or just ask me a question — SQL, Excel formulas, dashboard design, whatever you need." }
@@ -401,6 +402,17 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function formatAssistantText(raw) {
+  let html = escapeHtml(raw);
+  html = html.replace(/^### (.*)$/gm, '<div style="font-weight:700; font-size:14px; margin:10px 0 4px; color:#4FA3F7;">$1</div>');
+  html = html.replace(/^## (.*)$/gm, '<div style="font-weight:700; font-size:15px; margin:12px 0 6px; color:#4FA3F7;">$1</div>');
+  html = html.replace(/^# (.*)$/gm, '<div style="font-weight:700; font-size:16px; margin:14px 0 6px; color:#4FA3F7;">$1</div>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/^[-*] (.*)$/gm, '<div style="margin:2px 0 2px 12px;">• $1</div>');
+  html = html.replace(/\n/g, '<br>');
+  return html;
+}
+
 function renderMessages() {
   messagesEl.innerHTML = '';
   messages.forEach(m => {
@@ -408,7 +420,7 @@ function renderMessages() {
     row.className = 'msg-row ' + m.role;
     const bubble = document.createElement('div');
     bubble.className = 'bubble ' + m.role;
-    bubble.innerHTML = escapeHtml(m.content);
+    bubble.innerHTML = m.role === 'assistant' ? formatAssistantText(m.content) : escapeHtml(m.content);
     row.appendChild(bubble);
     messagesEl.appendChild(row);
   });
@@ -469,7 +481,7 @@ function renderStatusBar() {
     <span class="${q > 80 ? 'quality-good' : 'quality-bad'}">quality ${q}/100</span>
     <button class="clear-btn" id="clear-dataset">✕</button>
   `;
-  document.getElementById('clear-dataset').onclick = () => { dataset = null; renderStatusBar(); clearCharts(); };
+  document.getElementById('clear-dataset').onclick = () => { dataset = null; renderStatusBar(); clearCharts(); document.getElementById('report-btn').style.display = 'none'; };
 }
 
 const CHART_COLORS = ['#2F6FED','#4FA3F7','#7C8797','#E5484D','#F5A623','#3EC9C0','#9D7BFF','#F472B6'];
@@ -605,6 +617,7 @@ function applyDataset(fields, rows, label, persist = true) {
   dataset = { fileName: label, fields, rows, profile };
   renderStatusBar();
   renderCharts(rows, profile);
+  document.getElementById('report-btn').style.display = 'flex';
   const featuresEl = document.getElementById('post-login-features');
   if (featuresEl) featuresEl.style.display = 'none';
   pastePanel.classList.remove('open');
@@ -655,6 +668,11 @@ fileInput.addEventListener('change', (e) => {
 });
 
 document.getElementById('paste-toggle').onclick = () => pastePanel.classList.toggle('open');
+document.getElementById('report-btn').onclick = () => {
+  if (!dataset) return;
+  chatInput.value = 'Generate a full report with these exact sections: ## Executive Summary, ## Top 10 Insights, ## Business Recommendations, ## Data Quality Report, ## Suggested Visualizations. Use ## for each section header and - for bullet points.';
+  sendMessage();
+};
 document.getElementById('cancel-btn').onclick = () => { pastePanel.classList.remove('open'); pasteArea.value = ''; };
 document.getElementById('load-btn').onclick = () => {
   if (pasteArea.value.trim()) loadCsvText(pasteArea.value, 'pasted data');
@@ -664,7 +682,7 @@ function buildDataContext() {
   if (!dataset) return '';
   const { fileName, fields, rows, profile } = dataset;
   const sample = rows.slice(0, 8);
-  return `\n\n---DATASET CONTEXT---\nFile: ${fileName}\nRows: ${profile.rowCount}, Columns: ${profile.colCount}\nQuality score: ${profile.qualityScore}/100, Duplicate rows: ${profile.dupRows}\n\nColumn profile:\n${profile.cols.map(c => `- ${c.name} (${c.type}): ${c.missingPct}% missing, ${c.distinct} distinct values`).join('\n')}\n\nSample rows (first 8, as JSON):\n${JSON.stringify(sample)}\n---END DATASET CONTEXT---`;
+  return `\n\n---DATASET CONTEXT (background reference only — do NOT re-analyze or summarize this unless the user's message actually asks a question about the data. If the message is just a greeting, thanks, or casual remark, just respond to that naturally and briefly)---\nFile: ${fileName}\nRows: ${profile.rowCount}, Columns: ${profile.colCount}\nQuality score: ${profile.qualityScore}/100, Duplicate rows: ${profile.dupRows}\n\nColumn profile:\n${profile.cols.map(c => `- ${c.name} (${c.type}): ${c.missingPct}% missing, ${c.distinct} distinct values`).join('\n')}\n\nSample rows (first 8, as JSON):\n${JSON.stringify(sample)}\n---END DATASET CONTEXT---`;
 }
 
 async function sendMessage() {
