@@ -26,6 +26,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   * { box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; position: fixed; width: 100%; }
   body { margin: 0; font-family: 'Inter', sans-serif; background: #0A1428; color: #E6EAF0; }
 
   #auth-screen {
@@ -60,7 +61,11 @@
   .password-toggle { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 15px; color: #7C8797; user-select: none; }
 
   #app-screen { display: none; }
-  #app { max-width: 560px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; }
+  #app { max-width: 100%; margin: 0 auto; height: 100vh; height: var(--app-height, 100vh); display: flex; flex-direction: column; }
+
+  @media (min-width: 700px) {
+    #app { max-width: 640px; }
+  }
 
   @media (min-width: 900px) {
     #app { max-width: 900px; }
@@ -71,14 +76,24 @@
     #charts-container.has-charts .integrity-banner { grid-column: 1 / -1; }
     .auth-card { max-width: 460px; }
   }
-  .header { border-bottom: 1px solid #20365B; padding: 14px 16px; background: #0E1B33; }
+  .header { border-bottom: 1px solid #20365B; padding: 20px 18px; background: #0E1B33; }
   .header-row { display: flex; align-items: center; justify-content: space-between; }
   .brand { display: flex; align-items: center; gap: 8px; }
   .brand img { height: 26px; }
   .brand-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px; letter-spacing: 0.5px; }
   .brand-sub { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #7C8797; }
-  .btn-row { display: flex; gap: 8px; }
-  .icon-btn { display: flex; align-items: center; gap: 6px; background: #182D4D; border: 1px solid #2E4571; border-radius: 6px; padding: 6px 10px; font-size: 12px; font-family: 'IBM Plex Mono', monospace; cursor: pointer; }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .overflow-menu {
+    display: none; flex-direction: column; gap: 8px; padding: 12px 18px;
+    border-top: 1px solid #20365B; background: #0E1B33;
+  }
+  .overflow-menu.open { display: flex; }
+  .overflow-menu .icon-btn { width: 100%; justify-content: flex-start; padding-left: 14px; }
+  .pro-btn {
+    background: linear-gradient(135deg, #F5A623, #F59E0B) !important;
+    border: none !important; color: #1A1206 !important; font-weight: 700 !important;
+  }
+  .icon-btn { display: flex; align-items: center; justify-content: center; gap: 5px; background: #182D4D; border: 1px solid #2E4571; border-radius: 8px; min-width: 44px; height: 36px; padding: 0 10px; font-size: 12px; font-family: 'IBM Plex Mono', monospace; cursor: pointer; white-space: nowrap; }
   .icon-btn.csv { color: #2F6FED; }
   .icon-btn.paste { color: #4FA3F7; }
   .icon-btn.logout { color: #7C8797; }
@@ -150,7 +165,7 @@
   #app-screen.drag-over #app { outline: 3px dashed #2F6FED; outline-offset: -6px; background: rgba(47,111,237,0.05); }
 
   #history-panel {
-    position: fixed; top: 0; right: -320px; width: 300px; height: 100vh;
+    position: fixed; top: 0; right: -320px; width: 300px; height: 100vh; height: var(--app-height, 100vh);
     background: #0E1B33; border-left: 1px solid #20365B; z-index: 100;
     transition: right 0.25s ease; overflow-y: auto;
   }
@@ -160,12 +175,96 @@
   .history-item { padding: 12px 16px; border-bottom: 1px solid #182D4D; cursor: pointer; }
   .history-item:hover { background: #132340; }
   .history-title { font-size: 13px; color: #E6EAF0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .history-date { font-size: 10px; color: #7C8797; margin-top: 2px; font-family: 'IBM Plex Mono', monospace; }
+  .history-date { font-size: 10px; color: #7C8797; margin-top: 2px; font-family: 'IBM Plex Mono', monospace; }  /* ===================== LIGHT THEME ===================== */
+  body.light-theme { background: #F4F6FA; color: #1E293B; }
+  body.light-theme #auth-screen { background: radial-gradient(circle at 50% 0%, #FFFFFF 0%, #EEF1F8 60%); }
+  body.light-theme .auth-tagline { color: #64748B; }
+  body.light-theme .auth-tabs { background: #E7EBF3; }
+  body.light-theme .auth-tab { color: #64748B; }
+  body.light-theme .auth-field label { color: #64748B; }
+  body.light-theme .auth-field input { background: #FFFFFF; border-color: #D7DEEA; color: #1E293B; }
+  body.light-theme .auth-note { color: #64748B; }
+  body.light-theme .feature-card { background: #FFFFFF; border-color: #D7DEEA; color: #64748B; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+  body.light-theme .header { background: #FFFFFF; border-color: #E2E8F0; }
+  body.light-theme .brand-sub { color: #64748B; }
+  body.light-theme .icon-btn { background: #F1F5F9; border-color: #D7DEEA; color: #475569; }
+  body.light-theme .status-bar { color: #64748B; }
+  body.light-theme .mini-action { background: #F1F5F9; border-color: #D7DEEA; color: #64748B; }
+  body.light-theme .paste-area { background: #FFFFFF; border-color: #D7DEEA; color: #1E293B; }
+  body.light-theme .cancel-btn { border-color: #D7DEEA; color: #64748B; }
+  body.light-theme .bubble.user { background: #E0E7FF; border-color: #C7D2FE; color: #1E293B; }
+  body.light-theme .bubble.assistant { background: #FFFFFF; border-color: #E2E8F0; color: #1E293B; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+  body.light-theme .thinking { color: #64748B; }
+  body.light-theme .input-bar { background: #FFFFFF; border-color: #E2E8F0; }
+  body.light-theme textarea#chat-input { background: #F1F5F9; border-color: #D7DEEA; color: #1E293B; }
+  body.light-theme .chart-card { background: linear-gradient(160deg, #FFFFFF 0%, #F8FAFC 100%); border-color: #E2E8F0; box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
+  body.light-theme .chart-title { color: #64748B; }
+  body.light-theme .stat-card { background: linear-gradient(160deg, #FFFFFF 0%, #F8FAFC 100%); border-color: #E2E8F0; box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
+  body.light-theme .stat-card .stat-label { color: #64748B; }
+  body.light-theme .integrity-banner { background: linear-gradient(160deg, #FFF7ED 0%, #FFEDD5 100%); border-color: #FBBF6D; }
+  body.light-theme .integrity-banner .item { color: #78350F; }
+  body.light-theme .chip { background: #FFFFFF; border-color: #D7DEEA; color: #4F46E5; }
+  body.light-theme .chip:hover { background: #EEF2FF; }
+  body.light-theme #history-panel { background: #FFFFFF; border-color: #E2E8F0; }
+  body.light-theme .history-header { border-color: #E2E8F0; color: #1E293B; }
+  body.light-theme .history-item { border-color: #F1F5F9; }
+  body.light-theme .history-item:hover { background: #F8FAFC; }
+  body.light-theme .history-title { color: #1E293B; }
+  body.light-theme .history-date { color: #94A3B8; }
+
+  #splash-screen {
+    position: fixed; inset: 0; background: #0A1428; z-index: 999;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: opacity 0.4s ease; gap: 12px;
+  }
+  #splash-screen img { height: 90px; animation: splash-pulse 1.2s ease-in-out infinite; }
+  #splash-screen .splash-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px; color: #E6EAF0; letter-spacing: 0.5px; }
+  #splash-screen.hidden { opacity: 0; pointer-events: none; }
+  @keyframes splash-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.06); opacity: 0.85; } }
+
+  #pricing-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(5,10,20,0.85); z-index: 500;
+    align-items: center; justify-content: center; padding: 16px; overflow-y: auto;
+  }
+  #pricing-overlay.open { display: flex; }
+  #pricing-modal { background: #0E1B33; border: 1px solid #20365B; border-radius: 18px; max-width: 720px; width: 100%; padding: 20px; max-height: 92vh; overflow-y: auto; }
+  .pricing-header { display: flex; justify-content: space-between; align-items: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px; margin-bottom: 16px; }
+  .pricing-header button { background: none; border: none; color: #7C8797; font-size: 18px; cursor: pointer; }
+  .billing-toggle { display: flex; gap: 6px; background: #101c33; border-radius: 10px; padding: 4px; margin-bottom: 20px; width: fit-content; margin-left: auto; margin-right: auto; }
+  .billing-tab { background: none; border: none; color: #7C8797; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .billing-tab.active { background: #2F6FED; color: #fff; }
+  .save-badge { background: #10B981; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 8px; margin-left: 4px; }
+  .plan-cards { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  @media (min-width: 640px) { .plan-cards { grid-template-columns: 1fr 1fr; } }
+  .plan-card { border-radius: 16px; padding: 20px; position: relative; border: 1px solid; }
+  .student-plan { background: linear-gradient(160deg, #1E293B 0%, #0F1C33 100%); border-color: #3B82F6; }
+  .business-plan { background: linear-gradient(160deg, #2A2010 0%, #1A1408 100%); border-color: #F5A623; }
+  .plan-badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 12px; margin-bottom: 12px; background: #2F6FED; color: #fff; }
+  .gold-badge { background: linear-gradient(135deg, #F5A623, #F59E0B); color: #1A1206; }
+  .plan-icon { font-size: 32px; margin-bottom: 6px; }
+  .plan-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 20px; margin-bottom: 4px; }
+  .plan-price { margin-bottom: 4px; }
+  .price-amount { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; }
+  .student-plan .price-amount { color: #60A5FA; }
+  .business-plan .price-amount { color: #F5A623; }
+  .price-period { color: #7C8797; font-size: 13px; }
+  .plan-sub { color: #7C8797; font-size: 12px; margin-bottom: 16px; }
+  .plan-features { list-style: none; padding: 0; margin: 0 0 20px 0; }
+  .plan-features li { font-size: 12px; padding: 5px 0; color: #E6EAF0; }
+  .plan-features li::before { content: '✅ '; }
+  .plan-btn { width: 100%; border: none; border-radius: 10px; padding: 13px; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .student-btn { background: #3B82F6; color: #fff; }
+  .business-btn { background: linear-gradient(135deg, #F5A623, #F59E0B); color: #1A1206; }
 </style>
 </head>
 <body>
+<div id="splash-screen">
+  <img src="logo.png" alt="RZ AI Data Analyst" onerror="this.style.display='none'" />
+  <div class="splash-name">RZ AI Data Analyst</div>
+</div>
 
 <div id="auth-screen">
+  <button id="theme-toggle-auth" style="position:fixed; top:16px; right:16px; background:#182D4D; border:1px solid #2E4571; color:#7C8797; border-radius:8px; width:40px; height:40px; cursor:pointer; font-size:16px;">🌙</button>
   <div class="auth-card">
     <div class="auth-logo">
       <img src="logo.png" alt="RZ AI Data Analyst" onerror="this.style.display='none'; document.getElementById('fallback-icon-1').style.display='inline'" />
@@ -201,6 +300,64 @@
 </div>
 
 <div id="app-screen">
+<div id="pricing-overlay">
+  <div id="pricing-modal">
+    <div class="pricing-header">
+      <span>Upgrade to Pro</span>
+      <button id="pricing-close">✕</button>
+    </div>
+    <div class="billing-toggle">
+      <button class="billing-tab active" id="billing-monthly">Monthly</button>
+      <button class="billing-tab" id="billing-yearly">Yearly <span class="save-badge">Save 20%</span></button>
+    </div>
+    <div class="plan-cards">
+      <div class="plan-card student-plan" id="plan-student">
+        <div class="plan-badge">Most Popular for Learning</div>
+        <div class="plan-icon">🎓</div>
+        <div class="plan-name">Student Pro</div>
+        <div class="plan-price"><span class="price-amount" id="student-price">$9</span><span class="price-period">/mo</span></div>
+        <div class="plan-sub">For students, researchers & learners</div>
+        <ul class="plan-features">
+          <li>Unlimited AI data analysis</li>
+          <li>Upload CSV, Excel & JSON files</li>
+          <li>Advanced statistics & explanations</li>
+          <li>AI assignment assistant</li>
+          <li>Generate Excel formulas</li>
+          <li>Generate SQL queries</li>
+          <li>Statistical analysis (mean, correlation, regression)</li>
+          <li>Smart charts & visualizations</li>
+          <li>PDF report export</li>
+          <li>Presentation/viva insights</li>
+          <li>Analysis history</li>
+        </ul>
+        <button class="plan-btn student-btn" id="btn-student-upgrade">Upgrade to Student Pro</button>
+      </div>
+      <div class="plan-card business-plan" id="plan-business">
+        <div class="plan-badge gold-badge">For Growing Businesses</div>
+        <div class="plan-icon">💼</div>
+        <div class="plan-name">Business Pro</div>
+        <div class="plan-price"><span class="price-amount" id="business-price">$15</span><span class="price-period">/mo</span></div>
+        <div class="plan-sub">For entrepreneurs, freelancers & teams</div>
+        <ul class="plan-features">
+          <li>Everything in Student Pro</li>
+          <li>Unlimited large dataset analysis</li>
+          <li>Business KPI dashboard</li>
+          <li>Sales & revenue insights</li>
+          <li>Customer analysis</li>
+          <li>Product performance analysis</li>
+          <li>Profit & loss analysis</li>
+          <li>Trend forecasting</li>
+          <li>AI business recommendations</li>
+          <li>Executive reports</li>
+          <li>Branded PDF reports</li>
+          <li>Priority AI processing</li>
+        </ul>
+        <button class="plan-btn business-btn" id="btn-business-upgrade">Upgrade to Business Pro</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="history-panel">
   <div class="history-header">
     <span>Past Chats</span>
@@ -215,19 +372,27 @@
         <img src="logo.png" alt="RZ AI" onerror="this.style.display='none'; document.getElementById('fallback-icon-2').style.display='inline'" />
         <span id="fallback-icon-2" style="display:none; color:#2F6FED;">▲</span>
         <span class="brand-name">RZ AI</span>
-        <span class="brand-sub">data analyst</span>
       </div>
       <div class="btn-row">
-        <label class="icon-btn csv" for="file-input">⬆ File</label>
-        <input id="file-input" type="file" accept=".csv,.xlsx,.xls,.json" />
-        <button class="icon-btn paste" id="paste-toggle">Paste</button>
-        <button class="icon-btn csv" id="report-btn" style="display:none;">📋 Report</button>
-        <button class="icon-btn csv" id="pdf-export-btn" style="display:none;">📄 PDF</button>
-        <button class="icon-btn csv" id="new-chat-btn">🆕 New</button>
+        <label class="icon-btn csv" for="file-input">📁 File</label>
+        <input id="file-input" type="file" accept=".csv,.xlsx,.xls,.json" multiple />
+        <button class="icon-btn csv" id="new-chat-btn">➕ New</button>
         <button class="icon-btn paste" id="history-btn">🕘 History</button>
-        <button class="icon-btn logout" id="upgrade-btn" style="color:#F5A623; display:none;">⭐ Upgrade</button>
-        <button class="icon-btn logout" id="logout-btn">Log out</button>
+        <button class="icon-btn pro-btn" id="upgrade-btn" style="display:none;">⭐ Pro</button>
+        <button class="icon-btn paste" id="menu-toggle">☰</button>
       </div>
+    </div>
+    <div class="overflow-menu" id="overflow-menu">
+      <button class="icon-btn paste" id="paste-toggle">📋 Paste</button>
+      <button class="icon-btn paste" id="tools-toggle">🧮 Tools</button>
+      <button class="icon-btn csv" id="report-btn" style="display:none;">📋 Report</button>
+      <button class="icon-btn csv" id="pdf-export-btn" style="display:none;">📄 PDF</button>
+      <button class="icon-btn csv" id="install-btn" style="display:none;">⬇️ Install</button>
+      <button class="icon-btn paste" id="assignment-btn" style="display:none;">🎓 Assignment Mode</button>
+      <button class="icon-btn paste" id="presentation-btn" style="display:none;">🎤 Presentation Script</button>
+      <button class="icon-btn paste" id="powerbi-btn" style="display:none;">📊 Power BI Suggestions</button>
+      <button class="icon-btn paste" id="theme-toggle-btn">🌙 Theme</button>
+      <button class="icon-btn logout" id="logout-btn">🚪 Logout</button>
     </div>
     <div class="status-bar" id="status-bar" style="display:none;"></div>
     <div class="paste-panel" id="paste-panel">
@@ -235,6 +400,17 @@
       <div class="paste-actions">
         <button class="load-btn" id="load-btn">Load data</button>
         <button class="cancel-btn" id="cancel-btn">Cancel</button>
+      </div>
+    </div>
+    <div class="paste-panel" id="tools-panel">
+      <div class="auth-tabs" style="margin-bottom: 10px;">
+        <div class="auth-tab active" id="tool-tab-excel">Excel Formula</div>
+        <div class="auth-tab" id="tool-tab-sql">SQL Query</div>
+      </div>
+      <textarea class="paste-area" id="tools-input" rows="3" placeholder="Describe what you need — e.g. 'sum of revenue where region is West'"></textarea>
+      <div class="paste-actions">
+        <button class="load-btn" id="tools-generate-btn">Generate</button>
+        <button class="cancel-btn" id="tools-cancel-btn">Cancel</button>
       </div>
     </div>
   </div>
@@ -261,8 +437,8 @@
 </div>
 
 <script>
-const SUPABASE_URL = "https://ewtkxqrdxzlrgfmifmii.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3dGt4cXJkeHpscmdmbWlmbWlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NDMyMzIsImV4cCI6MjA5OTAxOTIzMn0.AIJSUyqM_amTf2TSwfT2sC193M-EwwCeytb7GuuhQ14";
+const SUPABASE_URL = "YOUR_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
 
 let sb;
 let supabaseInitError = null;
@@ -277,6 +453,8 @@ try {
 }
 
 const SYSTEM_PROMPT = `You are Rz, an elite AI Data Analyst — combining the expertise of a Senior Data Analyst, BI Consultant, Data Scientist, and Strategy Advisor.
+
+IDENTITY: You are Rz, part of the RZ AI Data Analyst app. If asked who made you, who your creator is, or what model/company is behind you, say you were built as part of the RZ AI Data Analyst project — do not name any underlying AI provider, model name, or company (e.g. do not say Google, Gemini, OpenAI, etc.). Stay in character as Rz in all cases. If asked about the creator specifically, you can mention: RZ is from a Baloch family, a mathematics student at CASPAM, Bahauddin Zakariya University, Multan, and is passionate about data and building AI tools. Share this naturally and briefly if relevant, not as a forced info-dump.
 
 CORE PRINCIPLES:
 - Accuracy before speed. Never invent facts, numbers, or sources.
@@ -296,6 +474,7 @@ VISUALIZATION RULES: bar = comparison, line = trends, pie = composition, scatter
 FORMAT: Use clear headers only when the analysis is substantial (real dataset or multi-part question). For quick questions, answer directly and concisely — don't force a template onto a one-line question. When using headers, use markdown ## syntax; for lists use markdown - bullets; use **bold** for key numbers. Use bold for key numbers, bullet points and short paragraphs, tables where useful. Avoid unnecessary jargon. Be objective, evidence-driven, and focused on business impact — teach while solving.
 
 INSIGHT QUALITY RULES (apply whenever giving insights or recommendations on a dataset):
+- CRITICAL: Never just report a fact — always connect it to a likely cause and a concrete next action. Instead of "Sales dropped by 15%", say something like "Sales dropped 15%, mainly driven by Product A's decline in Region B — consider reviewing pricing there or increasing promotion." Be an advisor, not just a reporter.
 - Quantify every insight with an actual number or percentage from the provided data context — never write a vague claim like "Fashion performs best" without the number behind it (e.g. "Fashion generated Rs. 1.24M, 42% of total profit").
 - Prioritize insights with a label at the start of each bullet: 🔴 Critical (data integrity issues, big revenue risks), 🟡 Medium (notable but not urgent), 🟢 Opportunity (positive finding or growth lever).
 - Explain the "why" behind numbers, not just the numbers themselves — e.g. note when a smaller-revenue category actually has a better margin, or when a trend has a plausible business cause.
@@ -395,12 +574,14 @@ let currentSessionId = null;
 
 function getDisplayName() {
   if (!currentUser) return '';
-  return currentUser.user_metadata?.full_name || currentUser.email.split('@')[0];
+  const raw = currentUser.user_metadata?.full_name || currentUser.email.split('@')[0];
+  const firstWord = raw.split(/[\s._-]+/)[0];
+  return firstWord.charAt(0).toUpperCase() + firstWord.slice(1).toLowerCase();
 }
 
 function freshWelcomeMessage() {
   const name = getDisplayName();
-  return { role: "assistant", content: `Welcome, ${name}! Upload a file to get a real data quality read, auto-charts, and analysis, or just ask me a question — SQL, Excel formulas, dashboard design, whatever you need.` };
+  return { role: "assistant", content: `Welcome back, ${name}! 👋 Upload a file to get a real data quality read, auto-charts, and analysis, or just ask me a question — SQL, Excel formulas, dashboard design, whatever you need.` };
 }
 
 function resetAppState() {
@@ -469,13 +650,54 @@ function updateProUI() {
 }
 
 const WHATSAPP_NUMBER = "923207895540";
+let billingCycle = 'monthly';
+
+const PRICES = {
+  monthly: { student: 9, business: 15 },
+  yearly: { student: Math.round(9 * 12 * 0.8), business: Math.round(15 * 12 * 0.8) }
+};
+
+function updatePricingDisplay() {
+  const p = PRICES[billingCycle];
+  const period = billingCycle === 'monthly' ? '/mo' : '/yr';
+  document.getElementById('student-price').textContent = `$${p.student}`;
+  document.getElementById('business-price').textContent = `$${p.business}`;
+  document.querySelectorAll('.price-period').forEach(el => el.textContent = period);
+}
 
 upgradeBtn.onclick = () => {
+  document.getElementById('pricing-overlay').classList.add('open');
+};
+document.getElementById('pricing-close').onclick = () => {
+  document.getElementById('pricing-overlay').classList.remove('open');
+};
+document.getElementById('billing-monthly').onclick = () => {
+  billingCycle = 'monthly';
+  document.getElementById('billing-monthly').classList.add('active');
+  document.getElementById('billing-yearly').classList.remove('active');
+  updatePricingDisplay();
+};
+document.getElementById('billing-yearly').onclick = () => {
+  billingCycle = 'yearly';
+  document.getElementById('billing-yearly').classList.add('active');
+  document.getElementById('billing-monthly').classList.remove('active');
+  updatePricingDisplay();
+};
+document.getElementById('btn-student-upgrade').onclick = () => {
+  const price = PRICES[billingCycle].student;
   const msg = encodeURIComponent(
-    `Hi! I'd like to upgrade to Rz AI Pro. My account email is: ${currentUser.email}`
+    `Hi! I'd like to upgrade to Rz AI Student Pro (${billingCycle}, $${price}). My account email is: ${currentUser.email}`
   );
   window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank');
 };
+document.getElementById('btn-business-upgrade').onclick = () => {
+  const price = PRICES[billingCycle].business;
+  const msg = encodeURIComponent(
+    `Hi! I'd like to upgrade to Rz AI Business Pro (${billingCycle}, $${price}). My account email is: ${currentUser.email}`
+  );
+  window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank');
+};
+updatePricingDisplay();
 
 async function incrementMessageCount() {
   userProfile.message_count += 1;
@@ -594,6 +816,9 @@ function escapeHtml(str) {
 
 function formatAssistantText(raw) {
   let html = escapeHtml(raw);
+  html = html.replace(/```[a-zA-Z]*\n?([\s\S]*?)```/g, (m, code) =>
+    `<pre style="background:#0A1428; border:1px solid #2E4571; border-radius:8px; padding:10px; overflow-x:auto; font-family:'IBM Plex Mono',monospace; font-size:12px; margin:8px 0;"><code>${code.trim()}</code></pre>`
+  );
   html = html.replace(/^### (.*)$/gm, '<div style="font-weight:700; font-size:14px; margin:10px 0 4px; color:#4FA3F7;">$1</div>');
   html = html.replace(/^## (.*)$/gm, '<div style="font-weight:700; font-size:15px; margin:12px 0 6px; color:#4FA3F7;">$1</div>');
   html = html.replace(/^# (.*)$/gm, '<div style="font-weight:700; font-size:16px; margin:14px 0 6px; color:#4FA3F7;">$1</div>');
@@ -896,6 +1121,66 @@ function renderSummaryStats(rows, profile) {
   chartsContainer.appendChild(card);
 }
 
+function renderForecast(rows, profile) {
+  const dateCol = profile.cols.find(c => isDateLike(c.name));
+  const numericCols = profile.cols.filter(c => c.type === 'numeric' && !isIdLike(c.name));
+  if (!dateCol || !numericCols.length) return;
+  const targetCol = numericCols[0];
+
+  const byDate = {};
+  rows.forEach(r => {
+    const d = r[dateCol.name];
+    if (!d) return;
+    const val = parseFloat(r[targetCol.name]) || 0;
+    byDate[d] = (byDate[d] || 0) + val;
+  });
+  const labels = Object.keys(byDate).sort();
+  if (labels.length < 3) return;
+
+  const values = labels.map(l => byDate[l]);
+  const n = values.length;
+  const xVals = values.map((_, i) => i);
+  const meanX = xVals.reduce((a, b) => a + b, 0) / n;
+  const meanY = values.reduce((a, b) => a + b, 0) / n;
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) { num += (xVals[i] - meanX) * (values[i] - meanY); den += (xVals[i] - meanX) ** 2; }
+  const slope = den ? num / den : 0;
+  const intercept = meanY - slope * meanX;
+
+  const forecastCount = Math.min(3, Math.max(1, Math.round(n * 0.3)));
+  const forecastLabels = [];
+  const forecastValues = [];
+  for (let i = 0; i < forecastCount; i++) {
+    forecastLabels.push(`+${i + 1}`);
+    forecastValues.push(Math.max(0, intercept + slope * (n + i)));
+  }
+
+  const canvas = addChartCard(`${targetCol.name} — forecast (next ${forecastCount} period${forecastCount > 1 ? 's' : ''})`);
+  chartInstances.push(new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: [...labels, ...forecastLabels],
+      datasets: [
+        { label: 'Actual', data: [...values, ...Array(forecastCount).fill(null)], borderColor: '#6366F1', backgroundColor: 'transparent', tension: 0.3, pointRadius: 3 },
+        { label: 'Forecast', data: [...Array(n - 1).fill(null), values[n - 1], ...forecastValues], borderColor: '#F59E0B', borderDash: [6, 4], backgroundColor: 'transparent', tension: 0.3, pointRadius: 3 }
+      ]
+    },
+    options: {
+      plugins: { legend: { labels: { color: '#E6EAF0', font: { size: 9 } } } },
+      scales: {
+        x: { ticks: { color: '#7C8797', font: { size: 9 } }, grid: { display: false } },
+        y: { ticks: { color: '#7C8797', font: { size: 9 } }, grid: { color: 'rgba(32,54,91,0.5)' } }
+      }
+    }
+  }));
+
+  const trendDirection = slope > 0 ? 'upward' : slope < 0 ? 'downward' : 'flat';
+  const banner = document.createElement('div');
+  banner.style.cssText = 'font-size:11px; color:#7C8797; margin:-8px 0 14px 4px; font-style:italic;';
+  banner.innerText = `Simple trend-based projection (${trendDirection}) — not a substitute for full statistical forecasting.`;
+  chartsContainer.appendChild(banner);
+}
+
 function renderScatterPlot(rows, profile) {
   const numericCols = profile.cols.filter(c => c.type === 'numeric' && !isIdLike(c.name));
   if (numericCols.length < 2) return;
@@ -915,6 +1200,68 @@ function renderScatterPlot(rows, profile) {
       }
     }
   }));
+}
+
+function renderBusinessKPIs(rows, profile) {
+  const revenueCol = profile.cols.find(c => c.type === 'numeric' && /revenue|sales|total|amount/i.test(c.name) && !isIdLike(c.name));
+  const costCol = profile.cols.find(c => c.type === 'numeric' && /cost|expense/i.test(c.name));
+  const productCol = profile.cols.find(c => c.type === 'text' && /product|item|sku/i.test(c.name));
+  const customerCol = profile.cols.find(c => c.type === 'text' && /customer|client|buyer/i.test(c.name));
+
+  if (!revenueCol && !productCol && !customerCol) return;
+
+  const card = document.createElement('div');
+  card.className = 'chart-card';
+  const label = document.createElement('div');
+  label.className = 'chart-title';
+  label.innerText = 'Business KPIs';
+  card.appendChild(label);
+
+  let html = '<div style="font-size:12px; line-height:1.8;">';
+
+  if (revenueCol && costCol) {
+    const totalRev = rows.reduce((a, r) => a + (parseFloat(r[revenueCol.name]) || 0), 0);
+    const totalCost = rows.reduce((a, r) => a + (parseFloat(r[costCol.name]) || 0), 0);
+    const margin = totalRev ? (((totalRev - totalCost) / totalRev) * 100).toFixed(1) : '0';
+    html += `<div>💰 <strong>Profit Margin:</strong> ${margin}% (Revenue: ${totalRev.toLocaleString()}, Cost: ${totalCost.toLocaleString()})</div>`;
+  }
+
+  if (productCol && revenueCol) {
+    const sums = {};
+    rows.forEach(r => {
+      const key = r[productCol.name] || 'Unknown';
+      sums[key] = (sums[key] || 0) + (parseFloat(r[revenueCol.name]) || 0);
+    });
+    const sorted = Object.entries(sums).sort((a, b) => b[1] - a[1]);
+    if (sorted.length) {
+      html += `<div>🏆 <strong>Best Product:</strong> ${escapeHtml(sorted[0][0])} (${sorted[0][1].toLocaleString()})</div>`;
+      html += `<div>📉 <strong>Worst Product:</strong> ${escapeHtml(sorted[sorted.length - 1][0])} (${sorted[sorted.length - 1][1].toLocaleString()})</div>`;
+    }
+  }
+
+  if (customerCol && revenueCol) {
+    const sums = {};
+    rows.forEach(r => {
+      const key = r[customerCol.name] || 'Unknown';
+      sums[key] = (sums[key] || 0) + (parseFloat(r[revenueCol.name]) || 0);
+    });
+    const topCustomers = Object.entries(sums).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    if (topCustomers.length) {
+      html += `<div>👥 <strong>Top Customers:</strong> ${topCustomers.map(c => escapeHtml(c[0])).join(', ')}</div>`;
+    }
+  }
+
+  const qtyCol = profile.cols.find(c => c.type === 'numeric' && /stock|inventory|qty|quantity/i.test(c.name));
+  if (qtyCol && productCol) {
+    const low = rows.filter(r => parseFloat(r[qtyCol.name]) < 10 && parseFloat(r[qtyCol.name]) >= 0);
+    if (low.length) {
+      html += `<div>📦 <strong>Low Stock Alert:</strong> ${low.length} item(s) below 10 units</div>`;
+    }
+  }
+
+  html += '</div>';
+  card.innerHTML += html;
+  chartsContainer.appendChild(card);
 }
 
 function renderStatCards(rows, profile) {
@@ -1017,6 +1364,7 @@ function renderCharts(rows, profile) {
 
   chartsContainer.classList.add('has-charts');
   renderStatCards(rows, profile);
+  renderBusinessKPIs(rows, profile);
   renderIntegrityBanner(profile);
   renderSummaryStats(rows, profile);
 
@@ -1160,6 +1508,7 @@ function renderCharts(rows, profile) {
   });
 
   renderScatterPlot(rows, profile);
+  renderForecast(rows, profile);
   renderCorrelationHeatmap(rows, profile);
 }
 
@@ -1171,18 +1520,18 @@ function renderSuggestedChips(profile) {
   const suggestions = [];
 
   if (categoricalCols[0] && numericCols[0]) {
-    suggestions.push(`Which ${categoricalCols[0].name.toLowerCase()} generates the most ${numericCols[0].name.toLowerCase()}?`);
+    suggestions.push(`Which ${categoricalCols[0].name} generates the highest ${numericCols[0].name}?`);
   }
   if (dateCol && numericCols[0]) {
-    suggestions.push(`Show the ${numericCols[0].name.toLowerCase()} trend over time`);
+    suggestions.push(`How has ${numericCols[0].name} changed over time?`);
   }
   if (numericCols.length >= 2) {
-    suggestions.push('Explain the correlation heatmap');
+    suggestions.push('Can you explain the correlation heatmap?');
   }
   if (profile.anomalies.length > 0 || profile.duplicateKeys.length > 0) {
     suggestions.push('What data quality issues did you find?');
   }
-  suggestions.push('Which records generate the highest value?');
+  suggestions.push('Which records have the highest values?');
 
   chipsRow.innerHTML = '';
   suggestions.slice(0, 4).forEach(text => {
@@ -1204,6 +1553,9 @@ function applyDataset(fields, rows, label, persist = true) {
   renderSuggestedChips(profile);
   document.getElementById('report-btn').style.display = 'flex';
   document.getElementById('pdf-export-btn').style.display = 'flex';
+  document.getElementById('assignment-btn').style.display = 'flex';
+  document.getElementById('presentation-btn').style.display = 'flex';
+  document.getElementById('powerbi-btn').style.display = 'flex';
   const featuresEl = document.getElementById('post-login-features');
   if (featuresEl) featuresEl.style.display = 'none';
   pastePanel.classList.remove('open');
@@ -1214,64 +1566,98 @@ function applyDataset(fields, rows, label, persist = true) {
   saveChatHistory();
 }
 
-function loadCsvText(text, label) {
-  Papa.parse(text, {
-    header: true,
-    dynamicTyping: false,
-    skipEmptyLines: true,
-    complete: (results) => applyDataset(results.meta.fields || [], results.data, label),
-    error: (err) => showError("Couldn't parse that: " + err.message)
+function parseCsvText(text) {
+  return new Promise((resolve, reject) => {
+    Papa.parse(text, {
+      header: true,
+      dynamicTyping: false,
+      skipEmptyLines: true,
+      complete: (results) => resolve({ fields: results.meta.fields || [], rows: results.data }),
+      error: (err) => reject(err)
+    });
   });
 }
 
-function loadExcelFile(arrayBuffer, label) {
-  try {
-    const wb = XLSX.read(arrayBuffer, { type: 'array' });
-    const sheetName = wb.SheetNames[0];
-    const sheet = wb.Sheets[sheetName];
-    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
-    const fields = rows.length ? Object.keys(rows[0]) : [];
-    applyDataset(fields, rows, label + (wb.SheetNames.length > 1 ? ` (sheet: ${sheetName})` : ''));
-  } catch (err) {
-    showError("Couldn't read that Excel file: " + err.message);
-  }
+function parseExcelBuffer(arrayBuffer) {
+  const wb = XLSX.read(arrayBuffer, { type: 'array' });
+  const sheetName = wb.SheetNames[0];
+  const sheet = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+  const fields = rows.length ? Object.keys(rows[0]) : [];
+  return { fields, rows };
 }
 
-function loadJsonText(text, label) {
-  try {
-    const parsed = JSON.parse(text);
-    const rows = Array.isArray(parsed) ? parsed : (parsed.data && Array.isArray(parsed.data) ? parsed.data : null);
-    if (!rows) { showError("JSON file must be an array of records (or an object with a 'data' array)."); return; }
-    const fieldSet = new Set();
-    rows.forEach(r => Object.keys(r).forEach(k => fieldSet.add(k)));
-    applyDataset(Array.from(fieldSet), rows, label);
-  } catch (err) {
-    showError("Couldn't parse that JSON file: " + err.message);
-  }
+function parseJsonText(text) {
+  const parsed = JSON.parse(text);
+  const rows = Array.isArray(parsed) ? parsed : (parsed.data && Array.isArray(parsed.data) ? parsed.data : null);
+  if (!rows) throw new Error("JSON file must be an array of records (or an object with a 'data' array).");
+  const fieldSet = new Set();
+  rows.forEach(r => Object.keys(r).forEach(k => fieldSet.add(k)));
+  return { fields: Array.from(fieldSet), rows };
 }
 
-function processFile(file) {
+function readFileAsParsedData(file) {
   const name = file.name.toLowerCase();
-  const reader = new FileReader();
-  if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
-    reader.onload = (ev) => loadExcelFile(ev.target.result, file.name);
-    reader.onerror = () => showError("Couldn't read that file.");
-    reader.readAsArrayBuffer(file);
-  } else if (name.endsWith('.json')) {
-    reader.onload = (ev) => loadJsonText(ev.target.result, file.name);
-    reader.onerror = () => showError("Couldn't read that file.");
-    reader.readAsText(file);
-  } else {
-    reader.onload = (ev) => loadCsvText(ev.target.result, file.name);
-    reader.onerror = () => showError("Couldn't read that file.");
-    reader.readAsText(file);
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Couldn't read " + file.name));
+    if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+      reader.onload = (ev) => {
+        try { resolve(parseExcelBuffer(ev.target.result)); }
+        catch (err) { reject(err); }
+      };
+      reader.readAsArrayBuffer(file);
+    } else if (name.endsWith('.json')) {
+      reader.onload = (ev) => {
+        try { resolve(parseJsonText(ev.target.result)); }
+        catch (err) { reject(err); }
+      };
+      reader.readAsText(file);
+    } else {
+      reader.onload = (ev) => {
+        parseCsvText(ev.target.result).then(resolve).catch(reject);
+      };
+      reader.readAsText(file);
+    }
+  });
+}
+
+function mergeParsedDatasets(parsedList) {
+  const fieldSet = new Set();
+  parsedList.forEach(p => p.fields.forEach(f => fieldSet.add(f)));
+  const fields = Array.from(fieldSet);
+  const rows = [];
+  parsedList.forEach(p => rows.push(...p.rows));
+  return { fields, rows };
+}
+
+async function processFiles(fileList) {
+  const files = Array.from(fileList);
+  if (!files.length) return;
+  try {
+    const parsedResults = await Promise.all(files.map(readFileAsParsedData));
+    let allParsed = parsedResults;
+    let label = files.length > 1
+      ? `${files.length} files merged (${files.map(f => f.name).join(', ')})`
+      : files[0].name;
+
+    if (dataset) {
+      const merge = confirm(`You already have "${dataset.fileName}" loaded (${dataset.rows.length} rows). Click OK to merge the new file(s) into it, or Cancel to replace it entirely.`);
+      if (merge) {
+        allParsed = [{ fields: dataset.fields, rows: dataset.rows }, ...parsedResults];
+        label = `${dataset.fileName} + ${files.length} more file(s) merged`;
+      }
+    }
+
+    const merged = mergeParsedDatasets(allParsed);
+    applyDataset(merged.fields, merged.rows, label);
+  } catch (err) {
+    showError("Couldn't process file(s): " + err.message);
   }
 }
 
 fileInput.addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  processFile(file);
+  processFiles(e.target.files);
   e.target.value = '';
 });
 
@@ -1284,14 +1670,72 @@ const appScreen = document.getElementById('app-screen');
   appScreen.addEventListener(evt, (e) => { e.preventDefault(); appScreen.classList.remove('drag-over'); });
 });
 appScreen.addEventListener('drop', (e) => {
-  const file = e.dataTransfer.files[0];
-  if (file) processFile(file);
+  processFiles(e.dataTransfer.files);
 });
 
+document.getElementById('menu-toggle').onclick = () => {
+  document.getElementById('overflow-menu').classList.toggle('open');
+};
+
 document.getElementById('paste-toggle').onclick = () => pastePanel.classList.toggle('open');
+
+let toolsMode = 'excel';
+const toolsPanel = document.getElementById('tools-panel');
+const toolTabExcel = document.getElementById('tool-tab-excel');
+const toolTabSql = document.getElementById('tool-tab-sql');
+const toolsInput = document.getElementById('tools-input');
+
+document.getElementById('tools-toggle').onclick = () => {
+  toolsPanel.classList.toggle('open');
+  pastePanel.classList.remove('open');
+};
+toolTabExcel.onclick = () => {
+  toolsMode = 'excel';
+  toolTabExcel.classList.add('active');
+  toolTabSql.classList.remove('active');
+  toolsInput.placeholder = "Describe what you need — e.g. 'sum of revenue where region is West'";
+};
+toolTabSql.onclick = () => {
+  toolsMode = 'sql';
+  toolTabSql.classList.add('active');
+  toolTabExcel.classList.remove('active');
+  toolsInput.placeholder = "Describe the query you need — e.g. 'top 5 customers by total spend'";
+};
+document.getElementById('tools-cancel-btn').onclick = () => { toolsPanel.classList.remove('open'); toolsInput.value = ''; };
+document.getElementById('tools-generate-btn').onclick = () => {
+  const need = toolsInput.value.trim();
+  if (!need) return;
+  const colContext = dataset ? ` The relevant columns in my data are: ${dataset.fields.join(', ')}.` : '';
+  if (toolsMode === 'excel') {
+    chatInput.value = `Give me an Excel formula for this: ${need}.${colContext} Show the formula in a code block, then briefly explain how it works.`;
+  } else {
+    chatInput.value = `Write a SQL query for this: ${need}.${colContext} Assume a table matching my data's columns. Show the query in a code block, then briefly explain it.`;
+  }
+  toolsPanel.classList.remove('open');
+  toolsInput.value = '';
+  sendMessage();
+};
 document.getElementById('report-btn').onclick = () => {
   if (!dataset) return;
   chatInput.value = 'Generate a full report with these exact sections: ## Executive Summary, ## Top 10 Insights, ## Business Recommendations, ## Data Quality Report, ## Suggested Visualizations. Use ## for each section header and - for bullet points.';
+  sendMessage();
+};
+document.getElementById('assignment-btn').onclick = () => {
+  if (!dataset) return;
+  document.getElementById('overflow-menu').classList.remove('open');
+  chatInput.value = "Explain this analysis in simple language as if I need to present it for a university assignment. Include: what the data shows, the key statistical terms in plain English, and 5 likely viva/interview questions a professor might ask about this dataset, with brief model answers.";
+  sendMessage();
+};
+document.getElementById('presentation-btn').onclick = () => {
+  if (!dataset) return;
+  document.getElementById('overflow-menu').classList.remove('open');
+  chatInput.value = "Write a short presentation script (like speaker notes) I can read aloud to present this data analysis to an audience — friendly, clear, 1-2 minutes long, covering the key findings and recommendation.";
+  sendMessage();
+};
+document.getElementById('powerbi-btn').onclick = () => {
+  if (!dataset) return;
+  document.getElementById('overflow-menu').classList.remove('open');
+  chatInput.value = "Suggest a Power BI dashboard layout for this dataset — which visuals to use, what KPIs to feature as cards, suggested filters/slicers, and how to organize the report pages.";
   sendMessage();
 };
 document.getElementById('pdf-export-btn').onclick = () => {
@@ -1376,6 +1820,59 @@ async function sendMessage() {
     saveChatHistory();
   }
 }
+
+// Lock the app's height to the actual viewport at load time, so the on-screen
+// keyboard opening/closing doesn't resize and "jump" the whole layout.
+function setStableAppHeight() {
+  document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
+}
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  document.getElementById('install-btn').style.display = 'flex';
+});
+document.getElementById('install-btn').onclick = async () => {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  document.getElementById('install-btn').style.display = 'none';
+};
+window.addEventListener('appinstalled', () => {
+  document.getElementById('install-btn').style.display = 'none';
+});
+
+function applyTheme(theme) {
+  document.body.classList.toggle('light-theme', theme === 'light');
+  const icon = theme === 'light' ? '☀️' : '🌙';
+  const btn1 = document.getElementById('theme-toggle-btn');
+  const btn2 = document.getElementById('theme-toggle-auth');
+  if (btn1) btn1.textContent = icon;
+  if (btn2) btn2.textContent = icon;
+}
+
+function toggleTheme() {
+  const isLight = document.body.classList.contains('light-theme');
+  const newTheme = isLight ? 'dark' : 'light';
+  localStorage.setItem('rz-theme', newTheme);
+  applyTheme(newTheme);
+}
+
+document.getElementById('theme-toggle-btn').onclick = toggleTheme;
+document.getElementById('theme-toggle-auth').onclick = toggleTheme;
+applyTheme(localStorage.getItem('rz-theme') || 'dark');
+
+setStableAppHeight();
+
+setTimeout(() => {
+  const splash = document.getElementById('splash-screen');
+  if (splash) {
+    splash.classList.add('hidden');
+    setTimeout(() => splash.remove(), 500);
+  }
+}, 900);
+window.addEventListener('orientationchange', () => setTimeout(setStableAppHeight, 200));
 
 sendBtn.onclick = sendMessage;
 chatInput.addEventListener('keydown', (e) => {
