@@ -76,11 +76,21 @@
     #charts-container.has-charts .integrity-banner { grid-column: 1 / -1; }
     .auth-card { max-width: 460px; }
   }
-  .header { border-bottom: 1px solid #20365B; padding: 20px 18px; background: #0E1B33; }
+  .header {
+    border-bottom: 1px solid rgba(47,111,237,0.25); padding: 16px 18px 14px;
+    background: rgba(14,27,51,0.75); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    position: sticky; top: 0; z-index: 50; box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  }
+  .header::after { content: ''; display: block; height: 2px; margin-top: 14px; border-radius: 2px; background: linear-gradient(90deg, #2F6FED, #6366F1, transparent); }
+  .ai-status { display: flex; align-items: center; gap: 6px; font-size: 10px; color: #7C8797; font-family: 'IBM Plex Mono', monospace; margin-top: 10px; }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #10B981; animation: status-pulse 2s ease-in-out infinite; }
+  .status-dot.thinking { background: #F59E0B; }
+  @keyframes status-pulse { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16,185,129,0.5); } 50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(16,185,129,0); } }
+  .brand img { height: 32px; filter: drop-shadow(0 0 8px rgba(47,111,237,0.6)); }
+  .brand-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 19px; letter-spacing: 0.5px; }
+  .brand-tagline { font-size: 10px; color: #7C8797; font-family: 'IBM Plex Mono', monospace; margin-top: 1px; letter-spacing: 0.3px; }
   .header-row { display: flex; align-items: center; justify-content: space-between; }
   .brand { display: flex; align-items: center; gap: 8px; }
-  .brand img { height: 26px; }
-  .brand-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px; letter-spacing: 0.5px; }
   .brand-sub { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #7C8797; }
   .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
   .overflow-menu {
@@ -156,12 +166,22 @@
   .bubble.assistant { background: #132340; border: 1px solid #20365B; border-left: 3px solid #2F6FED; }
   .thinking { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #7C8797; }
   .error-line { display: flex; align-items: center; gap: 6px; color: #E5484D; font-size: 12px; font-family: 'IBM Plex Mono', monospace; margin: 0 16px 12px 16px; }
-  .input-bar { border-top: 1px solid #20365B; padding: 12px 16px; background: #0E1B33; }
+  .input-bar { border-top: 1px solid #20365B; padding: 12px 16px; background: #0E1B33; position: relative; }
   .input-row { display: flex; gap: 8px; align-items: flex-end; }
   textarea#chat-input { flex: 1; resize: none; background: #132340; border: 1px solid #2E4571; border-radius: 8px; color: #E6EAF0; padding: 10px 12px; font-size: 14px; font-family: 'Inter', sans-serif; outline: none; }
   #send-btn { background: #2F6FED; border: none; border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; font-size: 16px; }
   #send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  #attach-btn, #mic-btn { background: #182D4D; border: 1px solid #2E4571; border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; font-size: 16px; color: #7C8797; }
+  #mic-btn.listening { background: #EF4444; color: #fff; animation: status-pulse 1s ease-in-out infinite; }
   #file-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+  .attach-popup {
+    display: none; flex-direction: column; gap: 6px; position: absolute; bottom: 100%; left: 16px;
+    background: #101c33; border: 1px solid #2E4571; border-radius: 12px; padding: 10px; margin-bottom: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3); z-index: 40; min-width: 220px;
+  }
+  .attach-popup.open { display: flex; }
+  .attach-option { background: #182D4D; border: 1px solid #2E4571; border-radius: 8px; padding: 10px 12px; font-size: 13px; color: #E6EAF0; text-align: left; cursor: pointer; }
+  .attach-option:hover { background: #20365B; }
   #app-screen.drag-over #app { outline: 3px dashed #2F6FED; outline-offset: -6px; background: rgba(47,111,237,0.05); }
 
   #history-panel {
@@ -371,28 +391,31 @@
       <div class="brand">
         <img src="logo.png" alt="RZ AI" onerror="this.style.display='none'; document.getElementById('fallback-icon-2').style.display='inline'" />
         <span id="fallback-icon-2" style="display:none; color:#2F6FED;">▲</span>
-        <span class="brand-name">RZ AI</span>
+        <div>
+          <div class="brand-name">RZ AI Analytics</div>
+          <div class="brand-tagline">Your AI Data Analyst</div>
+        </div>
       </div>
       <div class="btn-row">
-        <label class="icon-btn csv" for="file-input">📁 File</label>
-        <input id="file-input" type="file" accept=".csv,.xlsx,.xls,.json" multiple />
-        <button class="icon-btn csv" id="new-chat-btn">➕ New</button>
-        <button class="icon-btn paste" id="history-btn">🕘 History</button>
         <button class="icon-btn pro-btn" id="upgrade-btn" style="display:none;">⭐ Pro</button>
-        <button class="icon-btn paste" id="menu-toggle">☰</button>
+        <button class="icon-btn paste" id="menu-toggle">⋮</button>
       </div>
     </div>
     <div class="overflow-menu" id="overflow-menu">
-      <button class="icon-btn paste" id="paste-toggle">📋 Paste</button>
-      <button class="icon-btn paste" id="tools-toggle">🧮 Tools</button>
+      <button class="icon-btn csv" id="new-chat-btn">➕ New Chat</button>
+      <button class="icon-btn paste" id="history-btn">🕘 History</button>
+      <button class="icon-btn paste" id="tools-toggle">🧮 Excel/SQL Tools</button>
       <button class="icon-btn csv" id="report-btn" style="display:none;">📋 Report</button>
-      <button class="icon-btn csv" id="pdf-export-btn" style="display:none;">📄 PDF</button>
-      <button class="icon-btn csv" id="install-btn" style="display:none;">⬇️ Install</button>
+      <button class="icon-btn csv" id="pdf-export-btn" style="display:none;">📄 Export PDF</button>
+      <button class="icon-btn csv" id="install-btn">⬇️ Install App</button>
       <button class="icon-btn paste" id="assignment-btn" style="display:none;">🎓 Assignment Mode</button>
       <button class="icon-btn paste" id="presentation-btn" style="display:none;">🎤 Presentation Script</button>
       <button class="icon-btn paste" id="powerbi-btn" style="display:none;">📊 Power BI Suggestions</button>
       <button class="icon-btn paste" id="theme-toggle-btn">🌙 Theme</button>
       <button class="icon-btn logout" id="logout-btn">🚪 Logout</button>
+    </div>
+    <div class="ai-status" id="ai-status">
+      <span class="status-dot"></span> AI Ready
     </div>
     <div class="status-bar" id="status-bar" style="display:none;"></div>
     <div class="paste-panel" id="paste-panel">
@@ -428,8 +451,15 @@
   </div>
 
   <div class="input-bar">
+    <div class="attach-popup" id="attach-popup">
+      <label class="attach-option" for="file-input">📁 Upload File (CSV/Excel/JSON)</label>
+      <input id="file-input" type="file" accept=".csv,.xlsx,.xls,.json" multiple />
+      <button class="attach-option" id="attach-paste-btn">📋 Paste CSV Text</button>
+    </div>
     <div class="input-row">
+      <button id="attach-btn">➕</button>
       <textarea id="chat-input" rows="1" placeholder="Ask Rz about your data..."></textarea>
+      <button id="mic-btn">🎤</button>
       <button id="send-btn">➤</button>
     </div>
   </div>
@@ -807,6 +837,14 @@ async function saveDatasetToCloud() {
     onAuthed(data.session.user);
   }
 })();
+
+function setAIStatus(thinking) {
+  const el = document.getElementById('ai-status');
+  if (!el) return;
+  el.innerHTML = thinking
+    ? '<span class="status-dot thinking"></span> Thinking...'
+    : '<span class="status-dot"></span> AI Ready';
+}
 
 function escapeHtml(str) {
   const div = document.createElement('div');
@@ -1677,7 +1715,43 @@ document.getElementById('menu-toggle').onclick = () => {
   document.getElementById('overflow-menu').classList.toggle('open');
 };
 
-document.getElementById('paste-toggle').onclick = () => pastePanel.classList.toggle('open');
+const attachBtn = document.getElementById('attach-btn');
+const attachPopup = document.getElementById('attach-popup');
+attachBtn.onclick = () => attachPopup.classList.toggle('open');
+document.getElementById('attach-paste-btn').onclick = () => {
+  attachPopup.classList.remove('open');
+  pastePanel.classList.add('open');
+};
+document.addEventListener('click', (e) => {
+  if (!attachPopup.contains(e.target) && e.target !== attachBtn) attachPopup.classList.remove('open');
+});
+
+// Voice input via Web Speech API (Chrome/Android support; gracefully does nothing elsewhere)
+const micBtn = document.getElementById('mic-btn');
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (SpeechRecognition) {
+  const recognition = new SpeechRecognition();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = 'en-US';
+  let listening = false;
+
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    chatInput.value = (chatInput.value ? chatInput.value + ' ' : '') + transcript;
+  };
+  recognition.onend = () => { listening = false; micBtn.classList.remove('listening'); };
+  recognition.onerror = () => { listening = false; micBtn.classList.remove('listening'); };
+
+  micBtn.onclick = () => {
+    if (listening) { recognition.stop(); return; }
+    listening = true;
+    micBtn.classList.add('listening');
+    recognition.start();
+  };
+} else {
+  micBtn.onclick = () => alert('Voice input is not supported in this browser. Try Chrome on Android.');
+}
 
 let toolsMode = 'excel';
 const toolsPanel = document.getElementById('tools-panel');
@@ -1789,6 +1863,7 @@ async function sendMessage() {
   messages.push({ role: 'user', content: text });
   chatInput.value = '';
   loading = true;
+  setAIStatus(true);
   renderMessages();
   if (!userProfile.is_pro) incrementMessageCount();
 
@@ -1815,6 +1890,7 @@ async function sendMessage() {
     errorMsg = 'Something went wrong reaching Rz: ' + err.message;
   } finally {
     loading = false;
+    setAIStatus(false);
     renderMessages();
     if (errorMsg) showError(errorMsg);
     saveChatHistory();
@@ -1830,17 +1906,21 @@ let deferredInstallPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredInstallPrompt = e;
-  document.getElementById('install-btn').style.display = 'flex';
 });
 document.getElementById('install-btn').onclick = async () => {
-  if (!deferredInstallPrompt) return;
-  deferredInstallPrompt.prompt();
-  await deferredInstallPrompt.userChoice;
-  deferredInstallPrompt = null;
-  document.getElementById('install-btn').style.display = 'none';
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+  } else if (window.matchMedia('(display-mode: standalone)').matches) {
+    alert('This app is already installed!');
+  } else {
+    alert("To install: tap your browser's menu (⋮ or Share icon) and choose \"Add to Home Screen\" or \"Install App\".");
+  }
+  document.getElementById('overflow-menu').classList.remove('open');
 };
 window.addEventListener('appinstalled', () => {
-  document.getElementById('install-btn').style.display = 'none';
+  deferredInstallPrompt = null;
 });
 
 function applyTheme(theme) {
