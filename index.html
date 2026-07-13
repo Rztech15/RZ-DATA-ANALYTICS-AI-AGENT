@@ -304,6 +304,17 @@
   <img src="logo.png" alt="RZ AI Data Analyst" onerror="this.style.display='none'" />
   <div class="splash-name">RZ AI Data Analyst</div>
 </div>
+<script>
+  // Safety net: guarantees the splash screen disappears no matter what else
+  // fails elsewhere on the page (blocked CDN, ad-blocker, etc.)
+  setTimeout(function () {
+    var splash = document.getElementById('splash-screen');
+    if (splash) {
+      splash.classList.add('hidden');
+      setTimeout(function () { splash.remove(); }, 500);
+    }
+  }, 1200);
+</script>
 
 <div id="auth-screen">
   <button id="theme-toggle-auth" style="position:fixed; top:16px; right:16px; background:#182D4D; border:1px solid #2E4571; color:#7C8797; border-radius:8px; width:40px; height:40px; cursor:pointer; font-size:16px;">🌙</button>
@@ -884,9 +895,14 @@ async function saveDatasetToCloud() {
 }
 
 (async function initSession() {
-  const { data } = await sb.auth.getSession();
-  if (data.session && data.session.user) {
-    onAuthed(data.session.user);
+  try {
+    if (!sb) return;
+    const { data } = await sb.auth.getSession();
+    if (data.session && data.session.user) {
+      onAuthed(data.session.user);
+    }
+  } catch (e) {
+    console.error('Session restore failed:', e);
   }
 })();
 
@@ -1999,15 +2015,4 @@ window.addEventListener('beforeinstallprompt', (e) => {
   deferredInstallPrompt = e;
 });
 document.getElementById('install-btn').onclick = async () => {
-  if (deferredInstallPrompt) {
-    deferredInstallPrompt.prompt();
-    await deferredInstallPrompt.userChoice;
-    deferredInstallPrompt = null;
-  } else if (window.matchMedia('(display-mode: standalone)').matches) {
-    alert('This app is already installed!');
-  } else {
-    alert("To install: tap your browser's menu (⋮ or Share icon) and choose \"Add to Home Screen\" or \"Install App\".");
-  }
-  document.getElementById('overflow-menu').classList.remove('open');
-};
-window.addEventLis
+  if 
