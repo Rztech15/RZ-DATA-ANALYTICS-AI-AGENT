@@ -1,21 +1,125 @@
 // Vercel serverless function — calls Google's Gemini API (free tier).
-// Set GEMINI_API_KEY in your Vercel project's Environment Variables.
-// Get a free key at https://aistudio.google.com/apikey (no credit card needed).
+//
+// Required environment variables (set in Vercel project settings):
+//   GEMINI_API_KEY          — https://aistudio.google.com/apikey (no credit card needed)
+//   SUPABASE_URL             — same value as SUPABASE_URL in the frontend
+//   SUPABASE_SERVICE_ROLE_KEY — Supabase Project Settings → API → service_role key.
+//                               NEVER put this in the frontend — it bypasses RLS.
+//
+// Requires the SQL in supabase_rate_limit.sql to be run once against your
+// Supabase project (SQL editor → paste → run). That file now also creates
+// the `spent_turns` table + `charge_turn` function this version depends on.
+//
+// npm install @supabase/supabase-js   (if not already a project dependency)
+
+import { createClient } from "@supabase/supabase-js";
 
 const MODEL = "gemini-2.5-flash-lite";
+const FREE_DAILY_LIMIT = 5;
 
-async function callGemini(apiKey, system, contents) {
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
+
+// The one tool the model gets: exact computation over the FULL dataset
+// (filters, group-by, aggregates, correlation), executed client-side by the
+// frontend against the real rows it already has in memory. This is what lets
+// Rz answer "total revenue by region" correctly instead of estimating from
+// the handful of sample rows shown in the prompt.
+const QUERY_DATASET_TOOL = {
+  functionDeclarations: [
+    {
+      name: "query_dataset",
+      description:
+        "Runs an exact computation (sum, average, min, max, median, count, distinct count, or correlation) over the FULL loaded dataset — not a sample. Supports optional filtering and grouping. ALWAYS use this for any specific number, total, ranking, filtered count, or statistic the user asks about. Never estimate or compute such numbers yourself from the sample rows shown in the dataset context — those are for understanding structure only.",
+      parameters: {
+        type: "object",
+        properties: {
+          metric: {
+            type: "string",
+            enum: ["sum", "avg", "min", "max", "median", "count", "distinct_count", "correlation"],
+            description: "The computation to run.",
+          },
+          column: {
+            type: "string",
+            description: "Numeric (or target) column to aggregate. Omit only when metric is 'count'.",
+          },
+          column2: {
+            type: "string",
+            description: "Second column — required only when metric is 'correlation'.",
+          },
+          group_by: {
+            type: "string",
+            description: "Optional column to group results by, e.g. sum of revenue per region.",
+          },
+          filters: {
+            type: "array",
+            description: "Optional filters applied before aggregating.",
+            items: {
+              type: "object",
+              properties: {
+                column: { type: "string" },
+                op: { type: "string", enum: ["=", "!=", ">", "<", ">=", "<=", "contains"] },
+                value: { type: "string" },
+              },
+              required: ["column", "op", "value"],
+            },
+          },
+          sort: {
+            type: "string",
+            enum: ["asc", "desc"],
+            description: "Sort grouped results by the computed value — use with group_by for top/bottom-N questions.",
+          },
+          limit: {
+            type: "integer",
+            description: "Max number of groups to return, e.g. 5 for 'top 5 products'.",
+          },
+        },
+        required: ["metric"],
+      },
+    },
+  ],
+};
+
+const MAX_TOOL_ROUNDS = 4;
+
+async function callGemini(apiKey, system, contents, useTools) {
+  const body = {
+    systemInstruction: { parts: [{ text: system }] },
+    contents,
+  };
+  if (useTools) body.tools = [QUERY_DATASET_TOOL];
   return fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: system }] },
-        contents,
-      }),
+      body: JSON.stringify(body),
     }
   );
+}
+
+// Verifies the Supabase access token the frontend sends and returns the user,
+// or null if it's missing/invalid/expired. This is the actual security
+// boundary — everything the client sends about itself (is_pro, message_count)
+// is advisory only and is never trusted here.
+async function getAuthedUser(req) {
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  if (!token) return null;
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !data?.user) return null;
+  return data.user;
+}
+
+async function refundCredit(userId) {
+  try {
+    await supabaseAdmin.rpc("refund_message_count", { p_user_id: userId });
+  } catch (e) {
+    console.error("refund_message_count failed:", e.message);
+  }
 }
 
 export default async function handler(req, res) {
@@ -29,21 +133,73 @@ export default async function handler(req, res) {
     res.status(500).json({ error: "Server is missing GEMINI_API_KEY. Add it in Vercel project settings." });
     return;
   }
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    res.status(500).json({ error: "Server is missing Supabase service credentials." });
+    return;
+  }
 
+  // --- Auth: who is this? ---
+  const user = await getAuthedUser(req);
+  if (!user) {
+    res.status(401).json({ error: "Please log in again — your session has expired." });
+    return;
+  }
+
+  const { system, messages, turnId, priorToolTurns, useTools, toolRound } = req.body || {};
+  if (!turnId || typeof turnId !== "string") {
+    res.status(400).json({ error: "Missing turnId.", retryable: false });
+    return;
+  }
+  if (!Array.isArray(messages) || messages.length === 0) {
+    res.status(400).json({ error: "No messages provided.", retryable: false });
+    return;
+  }
+
+  // --- Rate limit: atomically check-and-reserve a credit for this TURN. ---
+  // charge_turn is idempotent per (user, turnId) — a tool round-trip or a
+  // retried request within the same logical turn is only ever charged once.
+  let gate;
   try {
-    const { system, messages } = req.body;
+    const { data, error } = await supabaseAdmin.rpc("charge_turn", {
+      p_user_id: user.id,
+      p_turn_id: turnId,
+      p_daily_limit: FREE_DAILY_LIMIT,
+    });
+    if (error) throw error;
+    gate = Array.isArray(data) ? data[0] : data;
+  } catch (e) {
+    console.error("charge_turn failed:", e.message);
+    // Fail closed: if we can't verify usage, don't let the request through.
+    res.status(500).json({ error: "Couldn't verify your usage limit right now — try again shortly.", retryable: true });
+    return;
+  }
 
+  if (!gate.allowed) {
+    res.status(429).json({
+      error: `Daily free-tier limit reached (${FREE_DAILY_LIMIT} messages). Resets at midnight, or upgrade to Pro for unlimited messages.`,
+      retryable: false,
+    });
+    return;
+  }
+
+  // --- From here on, a credit has been spent for this turn — refund it on any failure path. ---
+  try {
     const contents = messages.map((m) => ({
       role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }],
+      parts: [{ text: String(m.content ?? "") }],
     }));
+    if (Array.isArray(priorToolTurns)) contents.push(...priorToolTurns);
+
+    // Stop offering the tool once we've gone through several rounds already,
+    // forcing a final text answer instead of letting the model loop forever.
+    const enableTools = !!useTools && (toolRound || 0) < MAX_TOOL_ROUNDS;
 
     let response;
     let data;
     const maxAttempts = 3;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      response = await callGemini(apiKey, system, contents);
+      response = await callGemini(apiKey, system, contents, enableTools);
       data = await response.json();
 
       if (response.ok) break;
@@ -57,14 +213,41 @@ export default async function handler(req, res) {
     }
 
     if (!response.ok) {
-      res.status(response.status).json({ error: data?.error?.message || "Gemini API error" });
+      await refundCredit(user.id);
+      res.status(response.status).json({ error: data?.error?.message || "Gemini API error", retryable: true });
       return;
     }
 
-    const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join("\n") || "";
+    const candidateContent = data?.candidates?.[0]?.content;
+    const parts = candidateContent?.parts || [];
+    const fc = parts.find((p) => p.functionCall);
 
-    res.status(200).json({ content: [{ type: "text", text }] });
+    if (fc) {
+      // Mid-turn — the model wants a real number computed. Not a failure,
+      // don't refund; the frontend will execute this and call back with the
+      // result using the SAME turnId (so no extra charge happens).
+      res.status(200).json({
+        type: "function_call",
+        name: fc.functionCall.name,
+        args: fc.functionCall.args || {},
+        appendToolTurns: [{ role: "model", parts }],
+        usage: { message_count: gate.message_count, is_pro: gate.is_pro },
+      });
+      return;
+    }
+
+    const text = parts.filter((p) => p.text).map((p) => p.text).join("\n");
+    if (!text) {
+      // Model returned nothing usable — don't charge the user for a blank reply.
+      await refundCredit(user.id);
+    }
+
+    res.status(200).json({
+      content: [{ type: "text", text }],
+      usage: { message_count: gate.message_count, is_pro: gate.is_pro },
+    });
   } catch (err) {
-    res.status(500).json({ error: "Server error: " + err.message });
+    await refundCredit(user.id);
+    res.status(500).json({ error: "Server error: " + err.message, retryable: true });
   }
 }
