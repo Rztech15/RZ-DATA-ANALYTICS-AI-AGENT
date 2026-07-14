@@ -1,140 +1,137 @@
-# RZ Data Analyst — AI Agent
+<div align="center">
 
-<p align="center">
-  <img src="logo.png" alt="RZ Data Analyst logo" width="220" />
-</p>
+<img src="./screenshots/hero-banner.png" width="850" alt="Rz AI Data Analyst — transform data into decisions" />
 
-<p align="center">
-  An AI-powered data analyst you can chat with — upload a spreadsheet, get instant charts, and ask questions about your data in plain English.
-</p>
+# 📊 Rz — AI Data Analyst
 
-<p align="center">
-  <a href="https://rz-data-analytics-ai-agent.vercel.app"><strong>🔗 Live Demo</strong></a>
-</p>
+**Upload a spreadsheet. Get dashboards, data-quality checks, and a real analyst in chat — free.**
+
+[![Made with Gemini](https://img.shields.io/badge/AI-Gemini_2.5-4285F4?style=flat-square&logo=google&logoColor=white)](https://aistudio.google.com)
+[![Deployed on Vercel](https://img.shields.io/badge/Deployed-Vercel-000000?style=flat-square&logo=vercel&logoColor=white)](https://vercel.com)
+[![Backed by Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E?style=flat-square&logo=supabase&logoColor=white)](https://supabase.com)
+[![PWA Ready](https://img.shields.io/badge/PWA-Installable-5A0FC8?style=flat-square&logo=pwa&logoColor=white)]()
+[![License](https://img.shields.io/badge/License-MIT-lightgrey?style=flat-square)]()
+
+[**🚀 Live Demo**](#) · [**✨ Features**](#-features) · [**⚡ Quick Start**](#-quick-start) · [**🛠️ Tech Stack**](#️-tech-stack)
+
+</div>
 
 ---
 
-## Overview
+## What is Rz?
 
-RZ Data Analyst is a lightweight web app that lets anyone — no coding or Excel expertise required — upload a CSV or Excel file and immediately get:
+Rz is a single-page AI data analyst that runs entirely in the browser. Drop in a **CSV, Excel, or JSON** file and it instantly profiles your data, flags quality issues, charts what matters, and lets you *talk* to your dataset — ask questions, request a full report, generate SQL, or get a presentation script, all in plain English.
 
-- A data quality read (missing values, duplicates, column types)
-- Auto-generated charts based on what's actually in the data
-- A conversational AI analyst you can ask follow-up questions
-- One-click structured reports (executive summary, insights, recommendations)
+No install, no setup, no data-science background required.
 
-It's built as a single-page web app with user accounts, so each person's data and chat history stays private to their own login.
+## ✨ Features
 
-## Features
-
-- 🔐 **User accounts** — email/password sign-up and login, powered by Supabase Auth
-- 📂 **File upload** — supports `.csv`, `.xlsx`, and `.xls`, plus a paste-in option for quick CSV testing
-- 📊 **Auto-generated charts** — pie, bar, line, and distribution charts created automatically from your data's actual columns
-- 🤖 **AI chat** — ask anything about your dataset (SQL help, Excel formulas, trend explanations) powered by Google Gemini
-- 📋 **One-click reports** — generates an Executive Summary, Top Insights, Business Recommendations, Data Quality Report, and Suggested Visualizations
-- ☁️ **Cloud-saved sessions** — your last dataset reloads automatically next time you log in
-- 📱 **Installable as an app** — works as a Progressive Web App (PWA), can be added to a phone's home screen
-- 💬 **WhatsApp-based Pro upgrade** — simple manual upgrade flow for unlimited daily messages
-
-## Tech Stack
-
-| Layer | Technology |
+| | |
 |---|---|
-| Frontend | Vanilla HTML / CSS / JavaScript (no build step) |
-| Charts | [Chart.js](https://www.chartjs.org/) |
-| CSV parsing | [PapaParse](https://www.papaparse.com/) |
-| Excel parsing | [SheetJS (xlsx)](https://sheetjs.com/) |
-| Auth & Database | [Supabase](https://supabase.com/) (Postgres + Auth) |
-| AI | [Google Gemini API](https://ai.google.dev/) |
-| Hosting | [Vercel](https://vercel.com/) (static hosting + serverless functions) |
+| 📁 **Any file, any source** | CSV, XLSX, JSON, pasted data, or a direct URL import |
+| 🤖 **Real conversation** | Ask questions about your data like you would a colleague — Rz remembers the conversation |
+| 📈 **Instant dashboards** | Auto-generated charts, correlations, and a data-quality score the moment a file loads |
+| 🔍 **Anomaly detection** | Duplicate records, missing values, outliers (IQR method), and impossible values flagged automatically |
+| 🧮 **Excel & SQL tools** | Dedupe, fill missing values, generate SQL queries, export cleaned CSVs |
+| 📋 **One-click deliverables** | Full analysis reports, PDF export, assignment mode, presentation scripts, Power BI suggestions |
+| 🎨 **Make it yours** | Dark/light theme, 5 accent colors, and adjustable response style (concise → detailed) |
+| 🔒 **Privacy-first** | Export or permanently delete all your data at any time, right from Settings |
+| 📱 **Installable PWA** | Add to your home screen and use it like a native app |
+| 🆓 **Free tier included** | 5 messages/day free, unlimited on Pro |
 
-## Screenshots
+## ⚡ Quick Start
 
-*(Add your own screenshots here — landing page, chat with charts, and a sample report make good examples.)*
+### 1. Clone & configure
 
-## Installation Guide
-
-Want to run your own copy? Here's the full setup:
-
-### 1. Clone or download this repo
 ```bash
-git clone https://github.com/Rztech15/RZ-DATA-ANALYTICS-AI-AGENT.git
+git clone https://github.com/<your-username>/rz-ai-data-analyst.git
+cd rz-ai-data-analyst
 ```
 
-### 2. Get a free Gemini API key
-Go to [aistudio.google.com/apikey](https://aistudio.google.com/apikey) and create a key (no credit card required).
+### 2. Set up Supabase
 
-### 3. Set up Supabase
-- Create a project at [supabase.com](https://supabase.com)
-- Run the SQL below in the **SQL Editor** to create the required tables:
+1. Create a project at [supabase.com](https://supabase.com).
+2. Run the SQL in [`supabase_rate_limit.sql`](./supabase_rate_limit.sql) in the SQL editor — this sets up atomic, server-side rate limiting.
+3. Grab your **Project URL**, **anon key**, and **service_role key** from Project Settings → API.
 
-```sql
-create table user_datasets (
-  user_id uuid references auth.users(id) on delete cascade primary key,
-  filename text,
-  data jsonb,
-  updated_at timestamp with time zone default now()
-);
-alter table user_datasets enable row level security;
-create policy "Users can view own data" on user_datasets for select using (auth.uid() = user_id);
-create policy "Users can insert own data" on user_datasets for insert with check (auth.uid() = user_id);
-create policy "Users can update own data" on user_datasets for update using (auth.uid() = user_id);
+### 3. Get a free Gemini API key
 
-create table profiles (
-  user_id uuid references auth.users(id) on delete cascade primary key,
-  is_pro boolean default false,
-  message_count int default 0,
-  message_date date default current_date
-);
-alter table profiles enable row level security;
-create policy "Users can view own profile" on profiles for select using (auth.uid() = user_id);
-create policy "Users can insert own profile" on profiles for insert with check (auth.uid() = user_id);
-create policy "Users can update own profile" on profiles for update using (auth.uid() = user_id);
-```
-
-- Copy your **Project URL** and **anon/publishable key** from Project Settings → API
-- Paste them into `index.html` at the top of the `<script>` section:
-```javascript
-const SUPABASE_URL = "your-project-url";
-const SUPABASE_ANON_KEY = "your-anon-key";
-```
+Grab one at [aistudio.google.com/apikey](https://aistudio.google.com/apikey) — no credit card needed.
 
 ### 4. Deploy to Vercel
-- Push this repo to your own GitHub account
-- Import it into [Vercel](https://vercel.com)
-- Add an environment variable: `GEMINI_API_KEY` = your key from step 2
-- Deploy
 
-### 5. Done
-Your live link will look like `https://your-project-name.vercel.app`.
-
-## Folder Structure
-
-```
-rz-data-analyst/
-├── index.html          # Entire frontend (UI, auth, charts, chat logic)
-├── logo.png            # App logo
-├── manifest.json       # PWA config
-├── sw.js                # Service worker (PWA installability)
-├── package.json         # Project metadata
-├── api/
-│   └── chat.js          # Serverless function — proxies chat requests to Gemini
-└── README.md
+```bash
+vercel deploy
 ```
 
-## Roadmap
+Add these environment variables in your Vercel project settings:
 
-Planned improvements, roughly in priority order:
+| Variable | Where it's used | Keep secret? |
+|---|---|---|
+| `GEMINI_API_KEY` | `/api/chat` → calls Gemini | ✅ server-only |
+| `SUPABASE_URL` | `/api/chat` → verifies sessions & rate limits | can be public |
+| `SUPABASE_SERVICE_ROLE_KEY` | `/api/chat` → bypasses RLS to enforce limits | ✅ **never expose client-side** |
 
-- [ ] Landing/marketing page separate from the app (hero section, sample dataset demo)
-- [ ] Drag-and-drop file upload with progress indicator and file preview
-- [ ] Correlation heatmaps and richer distribution charts
-- [ ] PDF and Excel export of generated reports
-- [ ] Chart export as PNG
-- [ ] Suggested prompt chips and conversation history/rename/clear
-- [ ] Loading skeletons and empty-state illustrations
-- [ ] Automatic Pro upgrade via a Pakistan-compatible payment gateway (pending business registration)
+That's it — the frontend (`index.html`) needs no build step; it's a single static file.
 
-## License
+## 🛠️ Tech Stack
 
-This project is currently private/personal. Add a license here if you plan to open-source it.
+- **Frontend** — Vanilla JS, no framework, no build step (one HTML file)
+- **AI** — [Google Gemini](https://ai.google.dev/) (`gemini-2.5-flash-lite`)
+- **Backend** — Vercel Serverless Functions
+- **Database & Auth** — [Supabase](https://supabase.com) (Postgres + Row Level Security)
+- **Parsing** — PapaParse (CSV), SheetJS (Excel)
+
+## 🔐 Security
+
+- Every AI request is authenticated against a real Supabase session — not just trusted from the client.
+- Daily free-tier limits are enforced **atomically in Postgres**, closing the race condition that plagues naive check-then-write rate limiting.
+- Dataset content sent to the AI is sanitized and explicitly marked as untrusted data, not instructions — mitigating prompt injection from malicious spreadsheet content.
+- Users can export or permanently delete all their stored data at any time.
+
+## 🔭 Vision
+
+Concept renders for where the product is headed — a full multi-page dashboard (Data Explorer, standalone AI Tools, Saved Analyses, Integrations). **These are early concept art, not the current live UI** — today's Rz is the single-page chat app described above. Included here to show direction, not to overstate what's shipped.
+
+<table>
+<tr>
+<td width="50%"><img src="./screenshots/concept-dashboard.png" alt="Concept: dashboard overview" /><br/><sub align="center">Dashboard overview</sub></td>
+<td width="50%"><img src="./screenshots/concept-ai-chat.png" alt="Concept: AI chat with insights panel" /><br/><sub>AI chat with insights panel</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="./screenshots/concept-smart-charts.png" alt="Concept: smart charts page" /><br/><sub>Smart charts page</sub></td>
+<td width="50%"><img src="./screenshots/concept-data-cleaning.png" alt="Concept: before/after data cleaning" /><br/><sub>Before/after data cleaning</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="./screenshots/concept-login.jpg" alt="Concept: login screen" /><br/><sub>Login screen</sub></td>
+<td width="50%"><img src="./screenshots/concept-mobile-pwa.jpg" alt="Concept: installable mobile PWA" /><br/><sub>Installable mobile PWA</sub></td>
+</tr>
+</table>
+
+> Have real screenshots of the current app? Send them over and I'll swap in a proper **"Screenshots"** section above this one, showing exactly what ships today.
+
+## 🗺️ Roadmap
+
+- [ ] Streaming AI responses
+- [ ] Multi-sheet Excel support
+- [ ] Dedicated Data Explorer / Saved Analyses pages (see Vision above)
+- [ ] Team workspaces
+- [ ] Native chart export to PowerPoint
+
+## 🤝 Contributing
+
+Issues and PRs are welcome — open an issue first for anything beyond a small fix so we can talk through the approach.
+
+## 📄 License
+
+MIT — do what you want with it, just don't remove the credit.
+
+---
+
+<div align="center">
+
+Built by **Rz Baloch** — mathematics student at CASPAM, Bahauddin Zakariya University, Multan.
+
+<sub>Star ⭐ this repo if Rz saved you from opening Excel one more time.</sub>
+
+</div>
