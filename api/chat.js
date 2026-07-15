@@ -23,12 +23,14 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
-// The one tool the model gets: exact computation over the FULL dataset
-// (filters, group-by, aggregates, correlation), executed client-side by the
-// frontend against the real rows it already has in memory. This is what lets
-// Rz answer "total revenue by region" correctly instead of estimating from
-// the handful of sample rows shown in the prompt.
-const QUERY_DATASET_TOOL = {
+// Two tools the model gets, both executed client-side by the frontend
+// against the real dataset it already has in memory:
+//  - query_dataset: exact aggregates/filters/group-by/correlation
+//  - analyze_trend: time-bucketed trend + simple linear-projection forecast
+// This is what lets RZ Data Analytics AI answer "total revenue by region" or "is revenue
+// trending up" correctly instead of estimating from the handful of sample
+// rows shown in the prompt.
+const DATA_TOOLS = {
   functionDeclarations: [
     {
       name: "query_dataset",
@@ -80,6 +82,46 @@ const QUERY_DATASET_TOOL = {
         required: ["metric"],
       },
     },
+    {
+      name: "analyze_trend",
+      description:
+        "Analyzes how a numeric metric changes over time in the FULL dataset — buckets it into periods (day/week/month/quarter/year), computes period-over-period % change, fits a simple linear trend (direction, slope, fit quality), and can forecast future periods. Use for any question about trends, growth, seasonality, 'is X going up or down', or 'predict/forecast next month'. Never eyeball a trend from the sample rows — always use this tool. Forecasts are a simple linear projection, not a full time-series model — always caveat them as a rough estimate when relaying to the user.",
+      parameters: {
+        type: "object",
+        properties: {
+          date_column: { type: "string", description: "Column containing dates." },
+          value_column: { type: "string", description: "Numeric column to analyze over time." },
+          metric: {
+            type: "string",
+            enum: ["sum", "avg", "count"],
+            description: "How to aggregate value_column within each period. Default sum.",
+          },
+          period: {
+            type: "string",
+            enum: ["day", "week", "month", "quarter", "year"],
+            description: "Bucket size. Default month.",
+          },
+          filters: {
+            type: "array",
+            description: "Optional filters applied before bucketing.",
+            items: {
+              type: "object",
+              properties: {
+                column: { type: "string" },
+                op: { type: "string", enum: ["=", "!=", ">", "<", ">=", "<=", "contains"] },
+                value: { type: "string" },
+              },
+              required: ["column", "op", "value"],
+            },
+          },
+          forecast_periods: {
+            type: "integer",
+            description: "How many future periods to forecast (max 12), e.g. 3. Omit or 0 for no forecast.",
+          },
+        },
+        required: ["date_column", "value_column"],
+      },
+    },
   ],
 };
 
@@ -90,7 +132,7 @@ async function callGemini(apiKey, system, contents, useTools) {
     systemInstruction: { parts: [{ text: system }] },
     contents,
   };
-  if (useTools) body.tools = [QUERY_DATASET_TOOL];
+  if (useTools) body.tools = [DATA_TOOLS];
   return fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
     {
