@@ -108,8 +108,6 @@ Concept renders for where the product is headed — a full multi-page dashboard 
 </tr>
 </table>
 
-> Have real screenshots of the current app? Send them over and I'll swap in a proper **"Screenshots"** section above this one, showing exactly what ships today.
-
 ## 🗺️ Roadmap
 
 - [ ] Streaming AI responses
@@ -124,7 +122,7 @@ Issues and PRs are welcome — open an issue first for anything beyond a small f
 
 ## 📄 License
 
-MIT — do what you want with it, just don't remove the credit.
+MIT
 
 ---
 
