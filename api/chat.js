@@ -137,8 +137,6 @@ const DATA_TOOLS = {
   ],
 };
 
-const MAX_TOOL_ROUNDS = 4;
-
 async function callGemini(apiKey, system, contents, useTools) {
   const body = {
     systemInstruction: { parts: [{ text: system }] },
@@ -244,9 +242,14 @@ export default async function handler(req, res) {
     }));
     if (Array.isArray(priorToolTurns)) contents.push(...priorToolTurns);
 
-    // Stop offering the tool once we've gone through several rounds already,
-    // forcing a final text answer instead of letting the model loop forever.
-    const enableTools = !!useTools && (toolRound || 0) < MAX_TOOL_ROUNDS;
+    // Keep the tool available for the whole exchange once one round has used
+    // it — Gemini's function-calling protocol expects `tools` to stay
+    // declared on every request whose history contains functionCall /
+    // functionResponse turns; dropping it mid-conversation (as this used to
+    // do after MAX_TOOL_ROUNDS) produced an empty, unusable response instead
+    // of an error. Round-limiting now happens on the frontend instead, which
+    // simply stops looping and shows a helpful message if it's exceeded.
+    const enableTools = !!useTools;
 
     let response;
     let data;
