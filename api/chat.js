@@ -17,11 +17,23 @@ import { createClient } from "@supabase/supabase-js";
 const MODEL = "gemini-2.5-flash-lite";
 const FREE_DAILY_LIMIT = 5;
 
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
+// Lazily created — NOT at module load time. Building the client eagerly at
+// the top level meant a missing/misspelled env var threw during module
+// initialization, before the handler (and its own clearer error message)
+// ever ran — Vercel just reported a bare FUNCTION_INVOCATION_FAILED with no
+// useful detail. Creating it inside the handler, after the env var check
+// below, turns that into a proper JSON error instead.
+let _supabaseAdmin = null;
+function getSupabaseAdmin() {
+  if (!_supabaseAdmin) {
+    _supabaseAdmin = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+  }
+  return _supabaseAdmin;
+}
 
 // Two tools the model gets, both executed client-side by the frontend
 // against the real dataset it already has in memory:
@@ -151,14 +163,14 @@ async function getAuthedUser(req) {
   const authHeader = req.headers.authorization || "";
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
   if (!token) return null;
-  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  const { data, error } = await getSupabaseAdmin().auth.getUser(token);
   if (error || !data?.user) return null;
   return data.user;
 }
 
 async function refundCredit(userId) {
   try {
-    await supabaseAdmin.rpc("refund_message_count", { p_user_id: userId });
+    await getSupabaseAdmin().rpc("refund_message_count", { p_user_id: userId });
   } catch (e) {
     console.error("refund_message_count failed:", e.message);
   }
@@ -202,7 +214,7 @@ export default async function handler(req, res) {
   // retried request within the same logical turn is only ever charged once.
   let gate;
   try {
-    const { data, error } = await supabaseAdmin.rpc("charge_turn", {
+    const { data, error } = await getSupabaseAdmin().rpc("charge_turn", {
       p_user_id: user.id,
       p_turn_id: turnId,
       p_daily_limit: FREE_DAILY_LIMIT,
