@@ -15,7 +15,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 const MODEL = "gemini-2.5-flash-lite";
-const FREE_DAILY_LIMIT = 5;
+const FREE_DAILY_LIMIT = 10;
 
 // Lazily created — NOT at module load time. Building the client eagerly at
 // the top level meant a missing/misspelled env var threw during module
