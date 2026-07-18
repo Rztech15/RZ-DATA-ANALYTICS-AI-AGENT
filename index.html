@@ -3170,7 +3170,7 @@ function buildDataContext() {
 // server-side in /api/chat (atomic check-and-increment against Supabase,
 // verified against the caller's auth token), so it can't be bypassed by
 // calling the endpoint directly or editing this file.
-const FREE_DAILY_LIMIT = 5;
+const FREE_DAILY_LIMIT = 10;
 // Keeps the request payload and AI cost bounded on long conversations. Older
 // turns are dropped client-side; if the model needs to remember further back,
 // summarize older turns server-side instead of raising this unbounded.
