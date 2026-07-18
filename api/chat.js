@@ -236,10 +236,19 @@ export default async function handler(req, res) {
 
   // --- From here on, a credit has been spent for this turn — refund it on any failure path. ---
   try {
-    const contents = messages.map((m) => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: String(m.content ?? "") }],
-    }));
+    // Max base64 payload allowed per image — keeps the total request (text +
+    // history + image) safely under Gemini's 20MB request-size ceiling.
+    const MAX_IMAGE_BASE64_CHARS = 7 * 1024 * 1024;
+    const contents = messages.map((m) => {
+      const parts = [];
+      if (m.image && m.image.data && m.image.mimeType) {
+        if (typeof m.image.data === "string" && m.image.data.length <= MAX_IMAGE_BASE64_CHARS) {
+          parts.push({ inlineData: { mimeType: m.image.mimeType, data: m.image.data } });
+        }
+      }
+      parts.push({ text: String(m.content ?? "") });
+      return { role: m.role === "assistant" ? "model" : "user", parts };
+    });
     if (Array.isArray(priorToolTurns)) contents.push(...priorToolTurns);
 
     // Keep the tool available for the whole exchange once one round has used
