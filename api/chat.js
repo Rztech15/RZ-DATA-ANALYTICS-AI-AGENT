@@ -280,7 +280,19 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       await refundCredit(user.id);
-      res.status(response.status).json({ error: data?.error?.message || "Gemini API error", retryable: true });
+      // Log the real reason server-side (visible in Vercel logs) but never
+      // show Google's raw error text to the user — it's technical, often
+      // includes internal URLs/metric names, and isn't actionable for them.
+      console.error("Gemini API error:", response.status, data?.error?.message);
+      let friendlyError = "Something went wrong reaching the AI — please try again in a moment.";
+      let retryable = true;
+      if (response.status === 429 || response.status === 503) {
+        friendlyError = "The AI is busy right now — please wait a few seconds and try again.";
+      } else if (response.status === 401 || response.status === 403) {
+        friendlyError = "The AI service is temporarily unavailable. Please try again shortly.";
+        retryable = false;
+      }
+      res.status(response.status).json({ error: friendlyError, retryable });
       return;
     }
 
