@@ -1,4 +1,4 @@
-<div align="center">
+ko<div align="center">
 
 <img src="./hero-banner.png" width="850" alt="RZ Data Analytics AI Agent — transform data into decisions" />
 
@@ -130,7 +130,7 @@ Issues and PRs are welcome — open an issue first for anything beyond a small f
 
 ## 📄 License
 
-MIT — do what you want with it, just don't remove the credit.
+MIT 
 
 ---
 
