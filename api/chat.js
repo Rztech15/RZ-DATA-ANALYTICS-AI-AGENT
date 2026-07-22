@@ -1,20 +1,38 @@
-// Vercel serverless function — calls Google's Gemini API (free tier).
+// Vercel serverless function — calls AI models through OpenRouter
+// (https://openrouter.ai), a single API that can route to many different
+// underlying models. Configured with a fallback chain: if the primary model
+// is down, rate-limited, or errors, OpenRouter automatically retries the
+// SAME request against the next model in the list — you're only billed for
+// whichever one actually answers.
 //
 // Required environment variables (set in Vercel project settings):
-//   GEMINI_API_KEY          — https://aistudio.google.com/apikey (no credit card needed)
-//   SUPABASE_URL             — same value as SUPABASE_URL in the frontend
-//   SUPABASE_SERVICE_ROLE_KEY — Supabase Project Settings → API → service_role key.
-//                               NEVER put this in the frontend — it bypasses RLS.
+//   OPENROUTER_API_KEY        — https://openrouter.ai/keys
+//   SUPABASE_URL               — same value as SUPABASE_URL in the frontend
+//   SUPABASE_SERVICE_ROLE_KEY  — Supabase Project Settings → API → service_role key.
+//                                 NEVER put this in the frontend — it bypasses RLS.
 //
 // Requires the SQL in supabase_rate_limit.sql to be run once against your
-// Supabase project (SQL editor → paste → run). That file now also creates
-// the `spent_turns` table + `charge_turn` function this version depends on.
+// Supabase project (SQL editor → paste → run).
 //
 // npm install @supabase/supabase-js   (if not already a project dependency)
 
 import { createClient } from "@supabase/supabase-js";
 
-const MODEL = "gemini-2.5-flash-lite";
+// Fallback chain, tried in order. Chosen so no single provider outage takes
+// the app down, and each supports both tool-calling and image/PDF input
+// (both required — see DATA_TOOLS and the image-handling code below).
+//
+// ⚠️ Model slugs and pricing on OpenRouter change over time. Before relying
+// on this in production, check current availability/pricing for each at
+// https://openrouter.ai/models and adjust this list if needed — swapping
+// entries here is the only change required, nothing else in this file needs
+// to know which model actually served a given request.
+const MODELS = [
+  "google/gemini-2.5-flash-lite",
+  "openai/gpt-4o-mini",
+  "anthropic/claude-3.5-haiku",
+];
+
 const FREE_DAILY_LIMIT = 10;
 
 // Lazily created — NOT at module load time. Building the client eagerly at
@@ -39,12 +57,17 @@ function getSupabaseAdmin() {
 // against the real dataset it already has in memory:
 //  - query_dataset: exact aggregates/filters/group-by/correlation
 //  - analyze_trend: time-bucketed trend + simple linear-projection forecast
-// This is what lets RZ Data Analytics AI answer "total revenue by region" or "is revenue
-// trending up" correctly instead of estimating from the handful of sample
-// rows shown in the prompt.
-const DATA_TOOLS = {
-  functionDeclarations: [
-    {
+// This is what lets RZ Data Analytics AI answer "total revenue by region" or
+// "is revenue trending up" correctly instead of estimating from the handful
+// of sample rows shown in the prompt.
+//
+// OpenAI-style tool format (used by OpenRouter regardless of which
+// underlying model answers) — different shape than Gemini's native API:
+// each tool is wrapped in {type:"function", function:{...}}.
+const DATA_TOOLS = [
+  {
+    type: "function",
+    function: {
       name: "query_dataset",
       description:
         "Runs an exact computation (sum, average, min, max, median, count, distinct count, or correlation) over the FULL loaded dataset — not a sample. Supports optional filtering and grouping. ALWAYS use this for any specific number, total, ranking, filtered count, or statistic the user asks about. Never estimate or compute such numbers yourself from the sample rows shown in the dataset context — those are for understanding structure only.",
@@ -94,7 +117,10 @@ const DATA_TOOLS = {
         required: ["metric"],
       },
     },
-    {
+  },
+  {
+    type: "function",
+    function: {
       name: "analyze_trend",
       description:
         "Analyzes how a numeric metric changes over time in the FULL dataset — buckets it into periods (day/week/month/quarter/year), computes period-over-period % change, fits a simple linear trend (direction, slope, fit quality), and can forecast future periods. Use for any question about trends, growth, seasonality, 'is X going up or down', or 'predict/forecast next month'. Never eyeball a trend from the sample rows — always use this tool. Forecasts are a simple linear projection, not a full time-series model — always caveat them as a rough estimate when relaying to the user.",
@@ -134,23 +160,27 @@ const DATA_TOOLS = {
         required: ["date_column", "value_column"],
       },
     },
-  ],
-};
+  },
+];
 
-async function callGemini(apiKey, system, contents, useTools) {
+async function callOpenRouter(apiKey, openaiMessages, useTools) {
   const body = {
-    systemInstruction: { parts: [{ text: system }] },
-    contents,
+    models: MODELS, // fallback chain — OpenRouter tries each in order
+    messages: openaiMessages,
   };
-  if (useTools) body.tools = [DATA_TOOLS];
-  return fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }
-  );
+  if (useTools) body.tools = DATA_TOOLS;
+  return fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+      // Optional but recommended by OpenRouter for their public leaderboards
+      // and to help them identify traffic if you ever need support.
+      "HTTP-Referer": "https://rz-data-analytics-ai-agent.vercel.app/",
+      "X-Title": "RZ Data Analytics AI Agent",
+    },
+    body: JSON.stringify(body),
+  });
 }
 
 // Verifies the Supabase access token the frontend sends and returns the user,
@@ -174,15 +204,46 @@ async function refundCredit(userId) {
   }
 }
 
+// Converts the frontend's provider-agnostic message shape
+// ({role, content, image?}) into OpenAI-style messages. The last message's
+// image (if any) becomes a multimodal content array; every other message
+// stays plain text. Kept separate from the tool-turn messages, which are
+// already in native OpenAI shape (built by the frontend from a previous
+// response) and get appended as-is.
+const MAX_IMAGE_BASE64_CHARS = 7 * 1024 * 1024; // keeps the request safely under typical provider limits
+
+function buildOpenAiMessages(system, messages) {
+  const out = [{ role: "system", content: system }];
+  messages.forEach((m, i) => {
+    const isLast = i === messages.length - 1;
+    const hasUsableImage =
+      isLast && m.image && m.image.data && m.image.mimeType &&
+      typeof m.image.data === "string" && m.image.data.length <= MAX_IMAGE_BASE64_CHARS;
+
+    if (hasUsableImage) {
+      out.push({
+        role: m.role === "assistant" ? "assistant" : "user",
+        content: [
+          { type: "text", text: String(m.content ?? "") },
+          { type: "image_url", image_url: { url: `data:${m.image.mimeType};base64,${m.image.data}` } },
+        ],
+      });
+    } else {
+      out.push({ role: m.role === "assistant" ? "assistant" : "user", content: String(m.content ?? "") });
+    }
+  });
+  return out;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
     return;
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
-    res.status(500).json({ error: "Server is missing GEMINI_API_KEY. Add it in Vercel project settings." });
+    res.status(500).json({ error: "Server is missing OPENROUTER_API_KEY. Add it in Vercel project settings." });
     return;
   }
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -197,7 +258,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { system, messages, turnId, priorToolTurns, useTools, toolRound } = req.body || {};
+  const { system, messages, turnId, priorToolTurns, useTools } = req.body || {};
   if (!turnId || typeof turnId !== "string") {
     res.status(400).json({ error: "Missing turnId.", retryable: false });
     return;
@@ -236,28 +297,14 @@ export default async function handler(req, res) {
 
   // --- From here on, a credit has been spent for this turn — refund it on any failure path. ---
   try {
-    // Max base64 payload allowed per image — keeps the total request (text +
-    // history + image) safely under Gemini's 20MB request-size ceiling.
-    const MAX_IMAGE_BASE64_CHARS = 7 * 1024 * 1024;
-    const contents = messages.map((m) => {
-      const parts = [];
-      if (m.image && m.image.data && m.image.mimeType) {
-        if (typeof m.image.data === "string" && m.image.data.length <= MAX_IMAGE_BASE64_CHARS) {
-          parts.push({ inlineData: { mimeType: m.image.mimeType, data: m.image.data } });
-        }
-      }
-      parts.push({ text: String(m.content ?? "") });
-      return { role: m.role === "assistant" ? "model" : "user", parts };
-    });
-    if (Array.isArray(priorToolTurns)) contents.push(...priorToolTurns);
+    const openaiMessages = buildOpenAiMessages(system, messages);
+    if (Array.isArray(priorToolTurns)) openaiMessages.push(...priorToolTurns);
 
     // Keep the tool available for the whole exchange once one round has used
-    // it — Gemini's function-calling protocol expects `tools` to stay
-    // declared on every request whose history contains functionCall /
-    // functionResponse turns; dropping it mid-conversation (as this used to
-    // do after MAX_TOOL_ROUNDS) produced an empty, unusable response instead
-    // of an error. Round-limiting now happens on the frontend instead, which
-    // simply stops looping and shows a helpful message if it's exceeded.
+    // it — dropping it mid-conversation while the history still contains
+    // tool_calls/tool-result messages can confuse the model. Round-limiting
+    // happens on the frontend, which simply stops looping and shows a
+    // helpful message if it's exceeded.
     const enableTools = !!useTools;
 
     let response;
@@ -265,8 +312,8 @@ export default async function handler(req, res) {
     const maxAttempts = 3;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      response = await callGemini(apiKey, system, contents, enableTools);
-      data = await response.json();
+      response = await callOpenRouter(apiKey, openaiMessages, enableTools);
+      data = await response.json().catch(() => ({}));
 
       if (response.ok) break;
 
@@ -281,9 +328,9 @@ export default async function handler(req, res) {
     if (!response.ok) {
       await refundCredit(user.id);
       // Log the real reason server-side (visible in Vercel logs) but never
-      // show Google's raw error text to the user — it's technical, often
-      // includes internal URLs/metric names, and isn't actionable for them.
-      console.error("Gemini API error:", response.status, data?.error?.message);
+      // show the raw provider error text to the user — it's technical and
+      // isn't actionable for them.
+      console.error("OpenRouter API error:", response.status, data?.error?.message);
       let friendlyError = "Something went wrong reaching the AI — please try again in a moment.";
       let retryable = true;
       if (response.status === 429 || response.status === 503) {
@@ -296,25 +343,42 @@ export default async function handler(req, res) {
       return;
     }
 
-    const candidateContent = data?.candidates?.[0]?.content;
-    const parts = candidateContent?.parts || [];
-    const fc = parts.find((p) => p.functionCall);
+    const choice = data?.choices?.[0];
+    const assistantMessage = choice?.message;
+    const toolCalls = assistantMessage?.tool_calls;
 
-    if (fc) {
-      // Mid-turn — the model wants a real number computed. Not a failure,
-      // don't refund; the frontend will execute this and call back with the
-      // result using the SAME turnId (so no extra charge happens).
+    if (Array.isArray(toolCalls) && toolCalls.length) {
+      // Mid-turn — the model wants one or more real computations run. Not a
+      // failure, don't refund; the frontend executes these and calls back
+      // with the results using the SAME turnId (so no extra charge happens).
+      // OpenAI-style models can request several tool calls in one turn, so
+      // this returns the full array rather than just one.
+      let calls;
+      try {
+        calls = toolCalls.map((tc) => ({
+          id: tc.id,
+          name: tc.function?.name,
+          args: tc.function?.arguments ? JSON.parse(tc.function.arguments) : {},
+        }));
+      } catch (e) {
+        await refundCredit(user.id);
+        res.status(200).json({
+          content: [{ type: "text", text: "I tried to compute something but hit an internal formatting error — could you rephrase your question?" }],
+          usage: { message_count: gate.message_count, is_pro: gate.is_pro },
+        });
+        return;
+      }
       res.status(200).json({
         type: "function_call",
-        name: fc.functionCall.name,
-        args: fc.functionCall.args || {},
-        appendToolTurns: [{ role: "model", parts }],
+        calls,
+        assistantToolCallMessage: assistantMessage, // replay verbatim in the next request's priorToolTurns
         usage: { message_count: gate.message_count, is_pro: gate.is_pro },
+        model_used: data?.model,
       });
       return;
     }
 
-    const text = parts.filter((p) => p.text).map((p) => p.text).join("\n");
+    const text = assistantMessage?.content || "";
     if (!text) {
       // Model returned nothing usable — don't charge the user for a blank reply.
       await refundCredit(user.id);
@@ -323,6 +387,7 @@ export default async function handler(req, res) {
     res.status(200).json({
       content: [{ type: "text", text }],
       usage: { message_count: gate.message_count, is_pro: gate.is_pro },
+      model_used: data?.model,
     });
   } catch (err) {
     await refundCredit(user.id);
